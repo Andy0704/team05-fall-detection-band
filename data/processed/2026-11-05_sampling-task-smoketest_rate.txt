@@ -1,0 +1,7 @@
+source file: data/raw/2026-11-05_sampling-task-smoketest.log
+rows parsed: 511
+counter range: 1 -> 511 (510 intervals)
+elapsed: 5.099999 s
+measured rate: 100.0000 Hz
+gaps: 0 (missing ticks: 0)
+drop rate: 0.000000%

@@ -5,3 +5,7 @@
 *.pptx binary
 *.png binary
 *.jpg binary
+
+# Raw logs are never edited or re-saved (CLAUDE.md). Keep their exact
+# bytes; do not let line-ending normalization touch them.
+data/raw/** -text
