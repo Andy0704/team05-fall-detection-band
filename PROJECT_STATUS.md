@@ -4,9 +4,26 @@ Last updated: 2026-11-05. Update this file after every work session.
 
 ## Summary
 
-The revised proposal is written and ready for the team to confirm and submit today (5 Nov, Word + PDF). Nothing has been measured yet. Hardware and firmware progress is not recorded here yet, so items below marked "unverified" must be checked before anyone relies on them.
+End of session state, 2026-11-05: the proposal is written, the repo and
+PlatformIO firmware skeleton exist, the sampling task is measured at
+100.0000 Hz with 0 drops (5 s smoke test only, not the 10-minute spec
+test yet), and the free-fall/impact/tilt/inactivity rule is implemented
+but **not validated against real fall data** — all thresholds are still
+"first guess" or "handout example". No on-device alarm output yet
+(buzzer/OLED); the log's `state` field is the only place the rule result
+shows up.
 
-Next steps: confirm the open decisions, get the IMU streaming at a measured rate, then the first 10-minute log by the 12 Nov checkpoint.
+**Resume here next session:**
+1. Currently on git branch `detection-rule`, with draft PR
+   [#2](https://github.com/Andy0704/team05-fall-detection-band/pull/2)
+   open into `main` (not merged — marked draft because the rule is
+   unvalidated and `a_v` is a placeholder axis).
+2. Next work: either `output-alarm` (buzzer/OLED output + cancel button,
+   spec 03 Output) or real fall/no-fall trials with a mat and spotter to
+   validate the thresholds and confirm the `a_v` axis (open decision #1)
+   — see "Open decisions" below.
+3. Still need a real 10-minute log with drop rate for spec 04 (only a 5 s
+   smoke test exists so far).
 
 ## Repository and collaboration
 
@@ -14,6 +31,7 @@ Next steps: confirm the open decisions, get the IMU streaming at a measured rate
 - Branch strategy: `main` plus one feature branch per work area — `sensor-sampling`, `detection-rule`, `output-alarm`, `testing`. Work on your branch, open a PR into `main` to integrate; review and resolve conflicts in the PR rather than pushing straight to `main`.
 - Collaborators invited 2026-11-05 (pending acceptance): `Joaquinramirezhq`, `f94125032`, `f94127026-maker`.
 - LF line endings enforced repo-wide via `.gitattributes` to avoid cross-OS diff noise; `data/raw/**` is excluded from that normalization so raw logs stay byte-exact.
+- Open PR: [#2 Detection rule: free-fall / impact / tilt / inactivity](https://github.com/Andy0704/team05-fall-detection-band/pull/2) (draft, `detection-rule` -> `main`, not merged).
 
 ## Deadlines
 
