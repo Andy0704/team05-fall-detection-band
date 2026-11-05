@@ -8,6 +8,13 @@ The revised proposal is written and ready for the team to confirm and submit tod
 
 Next steps: confirm the open decisions, get the IMU streaming at a measured rate, then the first 10-minute log by the 12 Nov checkpoint.
 
+## Repository and collaboration
+
+- GitHub (private): https://github.com/Andy0704/team05-fall-detection-band
+- Branch strategy: `main` plus one feature branch per work area — `sensor-sampling`, `detection-rule`, `output-alarm`, `testing`. Work on your branch, open a PR into `main` to integrate; review and resolve conflicts in the PR rather than pushing straight to `main`.
+- Collaborators invited 2026-11-05 (pending acceptance): `Joaquinramirezhq`, `f94125032`, `f94127026-maker`.
+- LF line endings enforced repo-wide via `.gitattributes` to avoid cross-OS diff noise; `data/raw/**` is excluded from that normalization so raw logs stay byte-exact.
+
 ## Deadlines
 
 | Date | Deliverable | Status |
@@ -94,3 +101,4 @@ Next steps: confirm the open decisions, get the IMU streaming at a measured rate
 - 2026-11-05: Wired MPU6050 (SDA→GPIO8, SCL→GPIO9, INT→GPIO4, VCC→3V3, GND→GND), flashed and verified on hardware: WHO_AM_I reads 0x68 continuously via the INT-driven path. One transient I2C error in ~80 reads, noted above for follow-up.
 - 2026-11-05: Replaced the diagnostic ISR with the real sampling architecture: a high-priority FreeRTOS task reads the accelerometer (±8 g, DLPF 44 Hz) every 10 ms via `vTaskDelayUntil()`, pushes to a queue consumed by a lower-priority logging task (`firmware/src/main.cpp`). `state` is a placeholder (`MONITORING`) — no fall rule yet. 5.1 s smoke test: measured rate 100.0000 Hz, 0 dropped ticks. Raw log: `data/raw/2026-11-05_sampling-task-smoketest.log`, measured by `tools/analyze_log.py` (output saved to `data/processed/2026-11-05_sampling-task-smoketest_rate.txt`). Note: this measurement predates git init below, so its log header has no commit hash — that gap is now closed for future logs.
 - 2026-11-05: `git init`. LF line endings enforced repo-wide via `.gitattributes` (multi-OS team); `data/raw/**` explicitly excluded from any text normalization so raw logs stay byte-exact. Initial history split into docs / firmware skeleton / tools+data commits. Added `firmware/git_version.py` (PlatformIO pre-build script) to inject the current commit hash into the log header automatically. Remote hosting and branch/merge workflow for parallel work with teammates not decided yet.
+- 2026-11-05: Created private GitHub repo `Andy0704/team05-fall-detection-band`, pushed `main`, created and pushed feature branches `sensor-sampling`/`detection-rule`/`output-alarm`/`testing`, invited the three teammates as collaborators, and wrote `README.md`.
