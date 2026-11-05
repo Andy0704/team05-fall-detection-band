@@ -1,7 +1,5 @@
-// Sampling task + logging task skeleton.
-// No fall-detection rule yet: "state" is a placeholder until the
-// free-fall/impact/tilt/inactivity rule (CLAUDE.md "Design decisions") is
-// implemented.
+// Sampling task + logging task, feeding the fall-detection rule
+// (firmware/src/fall_detector.cpp). No on-device alarm output yet.
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -10,21 +8,12 @@
 #include <freertos/task.h>
 
 #include "config.h"
+#include "fall_detector.h"
 #include "pins.h"
 
 #ifndef FIRMWARE_GIT_COMMIT
 #define FIRMWARE_GIT_COMMIT "unknown"
 #endif
-
-enum class SensorState : uint8_t { MONITORING };
-
-const char *sensorStateName(SensorState state) {
-  switch (state) {
-    case SensorState::MONITORING:
-      return "MONITORING";
-  }
-  return "UNKNOWN";
-}
 
 struct SampleMsg {
   uint32_t counter;
@@ -33,6 +22,7 @@ struct SampleMsg {
   float ay_g;
   float az_g;
   bool valid;
+  SensorState state;
 };
 
 static QueueHandle_t g_logQueue;
@@ -94,6 +84,8 @@ void samplingTask(void *) {
   TickType_t lastWakeTime = xTaskGetTickCount();
   const TickType_t period = pdMS_TO_TICKS(SAMPLE_PERIOD_MS);
   uint32_t counter = 0;
+  FallDetector detector;
+  SensorState lastState = SensorState::MONITORING;
 
   for (;;) {
     vTaskDelayUntil(&lastWakeTime, period);
@@ -103,6 +95,11 @@ void samplingTask(void *) {
     msg.counter = counter;
     msg.micros = micros();
     msg.valid = readAccelG(msg.ax_g, msg.ay_g, msg.az_g);
+
+    if (msg.valid) {
+      lastState = detector.update(msg.ax_g, msg.ay_g, msg.az_g, msg.micros);
+    }
+    msg.state = lastState;
 
     xQueueSend(g_logQueue, &msg, 0); // non-blocking; drop if the queue is full
   }
@@ -117,10 +114,10 @@ void logTask(void *) {
       if (msg.valid) {
         Serial.printf("%lu,%lu,%.4f,%.4f,%.4f,%s\n", msg.counter, msg.micros,
                        msg.ax_g, msg.ay_g, msg.az_g,
-                       sensorStateName(SensorState::MONITORING));
+                       sensorStateName(msg.state));
       } else {
         Serial.printf("%lu,%lu,,,,%s\n", msg.counter, msg.micros,
-                       sensorStateName(SensorState::MONITORING));
+                       sensorStateName(msg.state));
       }
     }
   }
