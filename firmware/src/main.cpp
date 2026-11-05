@@ -12,6 +12,10 @@
 #include "config.h"
 #include "pins.h"
 
+#ifndef FIRMWARE_GIT_COMMIT
+#define FIRMWARE_GIT_COMMIT "unknown"
+#endif
+
 enum class SensorState : uint8_t { MONITORING };
 
 const char *sensorStateName(SensorState state) {
@@ -125,9 +129,9 @@ void logTask(void *) {
 void printLogHeader() {
   Serial.printf(
       "# sample_period_ms=%lu dlpf_cfg=0x%02X(44Hz) accel_fs_sel=0x%02X(+/-8g) "
-      "position=waist build=%s %s\n",
+      "position=waist commit=%s build=%s %s\n",
       (unsigned long)SAMPLE_PERIOD_MS, CONFIG_DLPF_44HZ, ACCEL_CONFIG_FS_SEL_8G,
-      __DATE__, __TIME__);
+      FIRMWARE_GIT_COMMIT, __DATE__, __TIME__);
   Serial.println("counter,micros,ax,ay,az,state");
 }
 
