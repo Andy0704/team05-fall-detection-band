@@ -1,0 +1,4 @@
+source file: data/raw/2026-11-05_detection-rule-idle-sanity.log
+total data lines: 681
+state counts: {'MONITORING': 680, 'FREE_FALL': 1}
+note: device at rest on a desk, no fall performed. Checks the rule does not spuriously reach FALL_DETECTED from handling noise.

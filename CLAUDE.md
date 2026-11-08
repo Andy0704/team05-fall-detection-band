@@ -24,6 +24,7 @@ Deliverables and code comments are in English. Team discussion may be in Traditi
 - OLED, buzzer, push button, power bank and strap: availability and pins are TBD (confirm with a TA). Do not invent pin numbers; add them here once wired.
 - If a module does not appear on the I2C bus, ask a TA for a replacement before debugging code.
 - Toolchain: PlatformIO, project root at `firmware/`. Board id `esp32-s3-devkitc-1`, framework `arduino`.
+- Which physical axis (`ax`/`ay`/`az`) is `a_v` (vertical) depends on the final waist-mounting orientation and is not confirmed yet — see PROJECT_STATUS.md open decision #1. The firmware currently assumes `az` as a placeholder (`firmware/src/fall_detector.cpp`); update it once the band is actually worn.
 
 ## The four mandatory specs (hard constraints)
 
@@ -47,6 +48,10 @@ Deliverables and code comments are in English. Team discussion may be in Traditi
 - **Sensor health:** I2C failure or timeout, WHO_AM_I (register 0x75) not 0x68, `SENSOR_IDENTICAL_SAMPLES` identical samples in a row, or no new sample for `SENSOR_STALE_MS`. The device shows "SENSOR ERROR", beeps twice every 5 s, re-initialises every 1 s, and recovers after `SENSOR_RECOVER_SAMPLES` valid samples.
 
 ## Named constants (all thresholds live in one config header)
+
+All thresholds live in `firmware/include/config.h`. The fall rule itself is
+implemented in `firmware/include/fall_detector.h` /
+`firmware/src/fall_detector.cpp`.
 
 Values below are starting points. Only the three marked "handout" come from the course example; the rest are first guesses to be tested.
 
@@ -83,16 +88,20 @@ Values below are starting points. Only the three marked "handout" come from the 
 - Report sensitivity and specificity with trial counts. State limitations: mat landings are softer than a real floor, and participants are healthy team members.
 - Safety: falls only onto a mat, with a spotter, never from height.
 
-## Repo layout (proposed)
+## Repo layout
 
 ```
 CLAUDE.md
 PROJECT_STATUS.md
+README.md          quick-start pointer for the team (hardware, build, branches)
 .claude/skills/fall-band-spec-check/SKILL.md
 docs/              proposal, slides, final report
-firmware/          ESP32-S3 sources
+firmware/          PlatformIO project (ESP32-S3 sources)
+  platformio.ini
+  include/         pins.h, config.h, fall_detector.h
+  src/             main.cpp, fall_detector.cpp
 experiments/       standalone validation sketches, not the team firmware
-tools/             log analysis scripts (to be written)
+tools/             log analysis scripts, e.g. tools/analyze_log.py
 data/raw/          raw serial logs, committed, never edited
 data/processed/    plots and tables derived from raw logs
 ```
@@ -102,3 +111,4 @@ data/processed/    plots and tables derived from raw logs
 - Update `PROJECT_STATUS.md` after each work session: what changed, and any measured number with its source file.
 - Commit each raw log together with the firmware commit hash it was recorded with.
 - Check with the team before changing a rule structure or a design decision above. Threshold values change only with data behind them.
+- GitHub (private): https://github.com/Andy0704/team05-fall-detection-band. Branch per work area — `sensor-sampling`, `detection-rule`, `output-alarm`, `testing` — merged into `main` via PR, not pushed to `main` directly. See `README.md` for details.

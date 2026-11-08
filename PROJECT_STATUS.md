@@ -1,12 +1,30 @@
 # Project status: Team 05 Fall-Detection Band
 
-Last updated: 2026-11-05. Update this file after every work session.
+Last updated: 2026-11-09. Update this file after every work session.
 
 ## Summary
 
-The revised proposal is written and ready for the team to confirm and submit today (5 Nov, Word + PDF). Nothing has been measured yet. Hardware and firmware progress is not recorded here yet, so items below marked "unverified" must be checked before anyone relies on them.
+End of session state, 2026-11-09: `main` now has the sampling task, the
+free-fall/impact/tilt/inactivity rule, and Joaquin's standalone MPU6050
+validation (PR #2 and PR #3, both reviewed and merged). The rule is
+**still not validated against real fall data** — all thresholds are still
+"first guess" or "handout example" — and `a_v` (vertical axis) is still a
+placeholder (`az`) pending mounting confirmation. No on-device alarm
+output yet (buzzer/OLED); the log's `state` field is the only place the
+rule result shows up. The one genuine 10-minute/100 Hz/0-drop log on
+record (`data/raw/2026-11-05_joaquin-standalone-validation_10min_100Hz.log`)
+is from a standalone sketch, not the production firmware — spec 04 still
+needs its own run on `firmware/src/main.cpp`.
 
-Next steps: confirm the open decisions, get the IMU streaming at a measured rate, then the first 10-minute log by the 12 Nov checkpoint.
+**Resume here next session:**
+1. `detection-rule` and `integrate-joaquin-validation` are merged into
+   `main` and can be deleted. Local work should branch from `main` again.
+2. Next work: either `output-alarm` (buzzer/OLED output + cancel button,
+   spec 03 Output) or real fall/no-fall trials with a mat and spotter to
+   validate the thresholds and confirm the `a_v` axis (open decision #1)
+   — see "Open decisions" below.
+3. Still need a real 10-minute log with drop rate from `firmware/src/main.cpp`
+   itself for spec 04 (only the standalone-sketch log exists so far).
 
 ## Repository and collaboration
 
@@ -14,6 +32,7 @@ Next steps: confirm the open decisions, get the IMU streaming at a measured rate
 - Branch strategy: `main` plus one feature branch per work area — `sensor-sampling`, `detection-rule`, `output-alarm`, `testing`. Work on your branch, open a PR into `main` to integrate; review and resolve conflicts in the PR rather than pushing straight to `main`.
 - Collaborators invited 2026-11-05 (pending acceptance): `Joaquinramirezhq`, `f94125032`, `f94127026-maker`.
 - LF line endings enforced repo-wide via `.gitattributes` to avoid cross-OS diff noise; `data/raw/**` is excluded from that normalization so raw logs stay byte-exact.
+- PR history: #1 closed (superseded by #3), #3 merged (Joaquin's validation, reorganized), #2 merged (detection rule, after a review-fixed sensor-gap bug).
 
 ## Deadlines
 
@@ -29,8 +48,8 @@ Next steps: confirm the open decisions, get the IMU streaming at a measured rate
 | Spec | Evidence needed | Status | Measured value | Evidence file |
 |---|---|---|---|---|
 | 01 Rate | Measured rate in Hz from a real run, shown on screen | In progress: 5 s smoke test done, needs on-device display (not Serial) and a longer run | **100.0000 Hz** (5.1 s smoke test) | `data/raw/2026-11-05_sampling-task-smoketest.log` via `tools/analyze_log.py` |
-| 02 Real time | Decision made on the board while the signal arrives | Not started (sampling task only reads+logs so far, no decision rule yet) | n/a | none |
-| 03 Rule | One line of code: named constant with unit | Not started | n/a | none |
+| 02 Real time | Decision made on the board while the signal arrives | In progress: `FallDetector::update()` now runs in the sampling task on every sample, on the board | n/a | `firmware/src/fall_detector.cpp` |
+| 03 Rule | One line of code: named constant with unit | Implemented: free-fall -> impact (within window) -> trunk tilt + inactivity, all named constants in `firmware/include/config.h`. Not yet validated against real fall data (thresholds still "first guess"/"handout example") | idle sanity check: 680/681 samples MONITORING, 1 brief FREE_FALL from handling, 0 FALL_DETECTED | `data/raw/2026-11-05_detection-rule-idle-sanity.log`, summarized in `data/processed/2026-11-05_detection-rule-idle-sanity.txt` |
 | 03 Output | Buzzer / OLED reacts with no laptop | Not started | n/a | none |
 | 04 Ten min | Committed raw log and drop rate from it | Preliminary evidence only: Joaquin's standalone validation sketch (not the team's FreeRTOS firmware) ran 10 min with 0 drops. The production firmware (`firmware/src/main.cpp`) still needs its own 10-minute run before this spec is actually satisfied | **100.0000 Hz, 0.000000% drop rate** (611.63 s, standalone sketch) | `data/raw/2026-11-05_joaquin-standalone-validation_10min_100Hz.log` via `tools/analyze_log.py`, independently re-verified; see `data/processed/2026-11-05_joaquin-standalone-validation_10min_100Hz_rate.txt` |
 
@@ -46,7 +65,7 @@ Next steps: confirm the open decisions, get the IMU streaming at a measured rate
 
 ## Open decisions and items to confirm
 
-1. Team agreement on waist mounting and the 60° tilt condition (proposed, not yet agreed by all members).
+1. Team agreement on waist mounting and the 60° tilt condition (proposed, not yet agreed by all members). **Blocking a real parameter now:** `firmware/src/fall_detector.cpp` assumes `a_v` (vertical axis) is `az` as a placeholder — confirm the real mounting orientation once the band is actually worn and update `verticalComponentG()` if a different axis is vertical.
 2. Kit contents: OLED, buzzer, push button, power bank, belt / strap. Ask a TA.
 3. ~~IMU detected on I2C at 0x68 (WHO_AM_I read)?~~ Verified 2026-11-05 on hardware: `firmware/src/main.cpp` flashed to the ESP32-S3-N16R8, MPU6050 data-ready interrupt on GPIO4 fires and `WHO_AM_I` reads back `0x68` continuously. One transient `i2cWriteReadNonStop Error -1` seen in roughly 80 reads over ~5 s — not yet characterized, watch for recurrence once the sampling task is running.
 4. OLED on the shared I2C bus, a second I2C controller, or MPU6050 FIFO. Decide after measuring the OLED refresh time.
@@ -102,5 +121,7 @@ Next steps: confirm the open decisions, get the IMU streaming at a measured rate
 - 2026-11-05: Replaced the diagnostic ISR with the real sampling architecture: a high-priority FreeRTOS task reads the accelerometer (±8 g, DLPF 44 Hz) every 10 ms via `vTaskDelayUntil()`, pushes to a queue consumed by a lower-priority logging task (`firmware/src/main.cpp`). `state` is a placeholder (`MONITORING`) — no fall rule yet. 5.1 s smoke test: measured rate 100.0000 Hz, 0 dropped ticks. Raw log: `data/raw/2026-11-05_sampling-task-smoketest.log`, measured by `tools/analyze_log.py` (output saved to `data/processed/2026-11-05_sampling-task-smoketest_rate.txt`). Note: this measurement predates git init below, so its log header has no commit hash — that gap is now closed for future logs.
 - 2026-11-05: `git init`. LF line endings enforced repo-wide via `.gitattributes` (multi-OS team); `data/raw/**` explicitly excluded from any text normalization so raw logs stay byte-exact. Initial history split into docs / firmware skeleton / tools+data commits. Added `firmware/git_version.py` (PlatformIO pre-build script) to inject the current commit hash into the log header automatically. Remote hosting and branch/merge workflow for parallel work with teammates not decided yet.
 - 2026-11-05: Created private GitHub repo `Andy0704/team05-fall-detection-band`, pushed `main`, created and pushed feature branches `sensor-sampling`/`detection-rule`/`output-alarm`/`testing`, invited the three teammates as collaborators, and wrote `README.md`.
+- 2026-11-05: On `detection-rule` branch: implemented the free-fall -> impact -> trunk tilt + inactivity rule (`firmware/include/fall_detector.h`, `firmware/src/fall_detector.cpp`), wired into the sampling task's `state` field. All thresholds as named constants in `firmware/include/config.h`. `a_v` (vertical axis) is a placeholder (`az`) pending mounting confirmation (open decision #1). Idle sanity check on hardware (board at rest on a desk, no fall performed): 680/681 samples stayed MONITORING, 1 brief FREE_FALL from handling the board, never reached FALL_DETECTED — log in `data/raw/2026-11-05_detection-rule-idle-sanity.log`. Still need: real fall/no-fall trials with a mat and spotter to validate the thresholds (none done yet).
 - 2026-11-09: Joaquin uploaded a standalone MPU6050 validation (I2C scanner, accel readings, 100 Hz sampling sketch, and a genuine 10-minute 100 Hz log) via GitHub's web upload (`joaquinramirezhq-patch-1`, PR #1), but the files landed at the repo root, which would have overwritten `README.md` and added a conflicting root `platformio.ini` if merged as-is. Reorganized on branch `integrate-joaquin-validation`: the three `.cpp` sketches, his `platformio.ini`, and his README moved to `experiments/imu-100hz-validation/` (matching his own stated intent); the raw log moved to `data/raw/2026-11-05_joaquin-standalone-validation_10min_100Hz.log` (byte-exact copy) with a derived report in `data/processed/`. Independently re-verified with `tools/analyze_log.py`: 61,164 samples, 611.63 s, 100.0000 Hz, 0 dropped ticks — matches his reported numbers. This is preliminary hardware evidence only (standalone single-loop sketch, not the team's FreeRTOS firmware), so spec 04 is not yet satisfied by the production firmware.
 - 2026-11-09: Code review on PR #3 (this integration) found: (1) `experiments/imu-100hz-validation/` had no `.gitignore` for its own `.pio/` build output, unlike `firmware/` — added one. (2) `(Wire.read() << 8) | Wire.read()` in the two copied sketches relies on unspecified `|` operand evaluation order, risking swapped MSB/LSB bytes on a different compiler/optimization level — split into separate statements in both files, and the same latent bug was also found and fixed in `firmware/src/main.cpp` on the `detection-rule` branch (PR #2). (3) The raw log's own header doesn't carry the DLPF/accel-range/position/commit-hash/date that CLAUDE.md code rule 5 asks for — documented as a known limitation in the experiment's README and the processed report (not fixed by editing the raw log, which is never edited or re-saved).
+- 2026-11-09: Code review on PR #2 found a real bug: the sampling task only called `FallDetector::update()` on successful reads, so a sensor-read gap mid-sequence froze the phase timer; combined with `IMPACT_WAIT` checking `svm` before checking window expiry, a stale impact after a gap could still be accepted, and `INACTIVITY_CHECK` could confirm `FALL_DETECTED` off a single post-gap sample. Fixed: `update()` now takes a `valid` flag and runs every tick, resetting to `MONITORING` on an invalid read during any active phase; `IMPACT_WAIT` checks window expiry first; tilt computation moved inside the branch where `svm > IMPACT_THRESHOLD_G` is already guaranteed (also structurally rules out the `svm == 0` -> NaN case review flagged); added `STANDING_SVM_G` named constant instead of a bare `1.0f`; fixed the same `(Wire.read() << 8) | Wire.read()` evaluation-order issue in `firmware/src/main.cpp`. Re-ran the idle sanity check after the fix: 536/537 samples MONITORING, no regression.
