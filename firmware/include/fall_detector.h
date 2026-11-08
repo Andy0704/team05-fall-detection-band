@@ -1,8 +1,7 @@
 // Fall-detection rule: free-fall -> impact within a window -> trunk tilt
-// + inactivity (CLAUDE.md "Design decisions"). No on-device alarm output
-// yet; that is a separate module (see the output-alarm branch), which
-// will consume the state this returns and will need its own way to
-// clear FALL_DETECTED (cancel button or ALARM_TIMEOUT_S).
+// + inactivity (CLAUDE.md "Design decisions"). The output/alarm module
+// (firmware/src/main.cpp outputTask) consumes the state this returns and
+// calls reset() once the alarm ends (cancel button or ALARM_TIMEOUT_S).
 #pragma once
 
 #include <cstdint>
@@ -26,6 +25,10 @@ class FallDetector {
   // letting a stale or partially-observed sequence count as evidence.
   SensorState update(bool valid, float ax_g, float ay_g, float az_g,
                       uint32_t now_us);
+
+  // Called by the output/alarm task once an alarm ends, to return to
+  // MONITORING. Only meaningful when the current state is FALL_DETECTED.
+  void reset();
 
  private:
   SensorState state_ = SensorState::MONITORING;

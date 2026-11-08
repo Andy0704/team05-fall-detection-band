@@ -1,3 +1,8 @@
 .DS_Store
 __pycache__/
 *.pyc
+
+# Casual reference photos (hardware identification, etc.) are not
+# project deliverables; keep them out of git history.
+*.HEIC
+*.heic

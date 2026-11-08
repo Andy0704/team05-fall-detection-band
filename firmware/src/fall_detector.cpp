@@ -129,10 +129,11 @@ SensorState FallDetector::update(bool valid, float ax_g, float ay_g,
     }
 
     case SensorState::FALL_DETECTED:
-      // Held here until the output/alarm module resets it. Not
-      // implemented yet - see the output-alarm branch.
+      // Held here until the output/alarm task calls reset().
       break;
   }
 
   return state_;
 }
+
+void FallDetector::reset() { state_ = SensorState::MONITORING; }
