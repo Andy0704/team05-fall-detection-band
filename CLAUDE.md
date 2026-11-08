@@ -100,6 +100,7 @@ firmware/          PlatformIO project (ESP32-S3 sources)
   platformio.ini
   include/         pins.h, config.h, fall_detector.h
   src/             main.cpp, fall_detector.cpp
+experiments/       standalone validation sketches, not the team firmware
 tools/             log analysis scripts, e.g. tools/analyze_log.py
 data/raw/          raw serial logs, committed, never edited
 data/processed/    plots and tables derived from raw logs
