@@ -91,6 +91,7 @@ PROJECT_STATUS.md
 .claude/skills/fall-band-spec-check/SKILL.md
 docs/              proposal, slides, final report
 firmware/          ESP32-S3 sources
+experiments/       standalone validation sketches, not the team firmware
 tools/             log analysis scripts (to be written)
 data/raw/          raw serial logs, committed, never edited
 data/processed/    plots and tables derived from raw logs

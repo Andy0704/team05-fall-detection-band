@@ -1,0 +1,14 @@
+source file: data/raw/2026-11-05_joaquin-standalone-validation_10min_100Hz.log
+rows parsed: 61164
+counter range: 1 -> 61164 (61163 intervals)
+elapsed: 611.629993 s
+measured rate: 100.0000 Hz
+gaps: 0 (missing ticks: 0)
+drop rate: 0.000000%
+
+note: recorded by Joaquin with a standalone single-loop micros()-scheduled
+sketch (experiments/imu-100hz-validation/03_100Hz_Sampling.cpp), not the
+team's FreeRTOS firmware (firmware/src/main.cpp). This is preliminary
+hardware/I2C-bus evidence that 100 Hz sustained sampling is feasible with
+0 drops over 10 minutes; it is not yet the spec 04 evidence for the
+production firmware, which still needs its own 10-minute run.
