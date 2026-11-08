@@ -36,15 +36,29 @@ const char *sensorStateName(SensorState state) {
   return "UNKNOWN";
 }
 
-SensorState FallDetector::update(float ax_g, float ay_g, float az_g,
-                                   uint32_t now_us) {
-  const float svm = sqrtf(ax_g * ax_g + ay_g * ay_g + az_g * az_g);
-  const float av = verticalComponentG(ax_g, ay_g, az_g);
+SensorState FallDetector::update(bool valid, float ax_g, float ay_g,
+                                   float az_g, uint32_t now_us) {
+  if (!valid) {
+    // CLAUDE.md anticipates I2C read failures as a normal condition to
+    // handle. A gap mid-sequence means we cannot trust whatever happened
+    // during it, so drop any in-progress detection back to MONITORING
+    // rather than let a stale or partially-observed sequence (e.g. an
+    // impact or an inactivity window) count as evidence once reads
+    // resume.
+    switch (state_) {
+      case SensorState::FREE_FALL:
+      case SensorState::IMPACT_WAIT:
+      case SensorState::INACTIVITY_CHECK:
+        state_ = SensorState::MONITORING;
+        break;
+      case SensorState::MONITORING:
+      case SensorState::FALL_DETECTED:
+        break;
+    }
+    return state_;
+  }
 
-  float ratio = av / svm;
-  if (ratio > 1.0f) ratio = 1.0f;
-  if (ratio < -1.0f) ratio = -1.0f;
-  const float tiltDeg = acosf(ratio) * RAD_TO_DEG;
+  const float svm = sqrtf(ax_g * ax_g + ay_g * ay_g + az_g * az_g);
 
   switch (state_) {
     case SensorState::MONITORING:
@@ -67,7 +81,22 @@ SensorState FallDetector::update(float ax_g, float ay_g, float az_g,
       break;
 
     case SensorState::IMPACT_WAIT: {
-      if (svm > IMPACT_THRESHOLD_G) {
+      // Check the window expiry first: an impact that arrives after the
+      // window has closed must not be accepted (checking svm first would
+      // accept a stale impact regardless of how late it is).
+      const uint32_t elapsedMs = (now_us - phase_start_us_) / 1000;
+      if (elapsedMs > IMPACT_WINDOW_MS) {
+        state_ = SensorState::MONITORING; // no impact within the window
+      } else if (svm > IMPACT_THRESHOLD_G) {
+        // Tilt is only needed once an impact is seen, which also
+        // guarantees svm > IMPACT_THRESHOLD_G > 0 here, so the a_v/svm
+        // division below can never divide by zero.
+        const float av = verticalComponentG(ax_g, ay_g, az_g);
+        float ratio = av / svm;
+        if (ratio > 1.0f) ratio = 1.0f;
+        if (ratio < -1.0f) ratio = -1.0f;
+        const float tiltDeg = acosf(ratio) * RAD_TO_DEG;
+
         if (tiltDeg > TILT_THRESHOLD_DEG) {
           state_ = SensorState::INACTIVITY_CHECK;
           phase_start_us_ = now_us;
@@ -75,11 +104,6 @@ SensorState FallDetector::update(float ax_g, float ay_g, float az_g,
           svm_max_g_ = svm;
         } else {
           state_ = SensorState::MONITORING; // impact without a fall-like tilt
-        }
-      } else {
-        const uint32_t elapsedMs = (now_us - phase_start_us_) / 1000;
-        if (elapsedMs > IMPACT_WINDOW_MS) {
-          state_ = SensorState::MONITORING; // no impact within the window
         }
       }
       break;
@@ -89,8 +113,9 @@ SensorState FallDetector::update(float ax_g, float ay_g, float az_g,
       if (svm < svm_min_g_) svm_min_g_ = svm;
       if (svm > svm_max_g_) svm_max_g_ = svm;
 
-      const bool stillMoving = (svm_max_g_ - 1.0f > INACTIVITY_SVM_DEV_G) ||
-                                (1.0f - svm_min_g_ > INACTIVITY_SVM_DEV_G);
+      const bool stillMoving =
+          (svm_max_g_ - STANDING_SVM_G > INACTIVITY_SVM_DEV_G) ||
+          (STANDING_SVM_G - svm_min_g_ > INACTIVITY_SVM_DEV_G);
       if (stillMoving) {
         state_ = SensorState::MONITORING;
         break;

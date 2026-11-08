@@ -51,7 +51,10 @@ constexpr uint32_t IMPACT_WINDOW_MS = 500;
 constexpr float TILT_THRESHOLD_DEG = 60.0f;
 
 // First guess: after a tilted impact, SVM must stay within
-// 1 +/- INACTIVITY_SVM_DEV_G of 1 g for this long (tracked with a
+// STANDING_SVM_G +/- INACTIVITY_SVM_DEV_G for this long (tracked with a
 // running min/max, no variance) before the fall is confirmed.
 constexpr uint32_t INACTIVITY_MS = 2000;
 constexpr float INACTIVITY_SVM_DEV_G = 0.15f;
+
+// Nominal SVM at rest (gravity only, no motion).
+constexpr float STANDING_SVM_G = 1.0f;

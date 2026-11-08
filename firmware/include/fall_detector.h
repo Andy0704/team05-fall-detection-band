@@ -19,8 +19,13 @@ const char *sensorStateName(SensorState state);
 
 class FallDetector {
  public:
-  // ax_g/ay_g/az_g: acceleration in g. now_us: micros() at this sample.
-  SensorState update(float ax_g, float ay_g, float az_g, uint32_t now_us);
+  // valid: whether this sample's I2C read succeeded. ax_g/ay_g/az_g:
+  // acceleration in g (only meaningful when valid). now_us: micros() at
+  // this sample. Call every scheduled tick, even when valid is false, so
+  // a sensor-read gap mid-sequence can reset the detector instead of
+  // letting a stale or partially-observed sequence count as evidence.
+  SensorState update(bool valid, float ax_g, float ay_g, float az_g,
+                      uint32_t now_us);
 
  private:
   SensorState state_ = SensorState::MONITORING;
