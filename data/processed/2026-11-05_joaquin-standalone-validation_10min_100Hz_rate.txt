@@ -12,3 +12,10 @@ team's FreeRTOS firmware (firmware/src/main.cpp). This is preliminary
 hardware/I2C-bus evidence that 100 Hz sustained sampling is feasible with
 0 drops over 10 minutes; it is not yet the spec 04 evidence for the
 production firmware, which still needs its own 10-minute run.
+
+note: the raw log's own header does not record the DLPF setting, accel
+range, sensor position, commit hash, or date that CLAUDE.md code rule 5
+asks for (it only has "# MPU6050 100 Hz sampling test"). Those facts are
+available from experiments/imu-100hz-validation/README.md and the git
+history around PR #1, not from the log file itself. Not backfilled into
+the log, since raw logs are never edited or re-saved.

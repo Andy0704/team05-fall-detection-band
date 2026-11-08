@@ -45,6 +45,7 @@ below is otherwise unchanged.
 - No physical buzzer, OLED, or button was available for this test; serial output is **not** the final on-device alert.
 - A complete log with contiguous counters and no reported missed ticks supports the recorded-run performance, but does not prove that future firmware revisions will have the same behavior.
 - The three `.cpp` files are independent historical examples. **Do not put all of them together under `src/`**: each defines `setup()` and `loop()`. For testing, copy only the desired program to `src/main.cpp`.
+- The raw log's own header (`# MPU6050 100 Hz sampling test`) does not record the DLPF setting, accelerometer range, sensor position, firmware commit hash, or date that CLAUDE.md's logging rule (code rule 5) asks every log header to carry — those facts are only available from this README and the git history around PR #1, not from the log file itself. The raw log is never edited to backfill this (CLAUDE.md: raw logs are never edited or re-saved), so treat it as supporting evidence rather than a log that is fully self-describing on its own.
 
 ## Next steps
 

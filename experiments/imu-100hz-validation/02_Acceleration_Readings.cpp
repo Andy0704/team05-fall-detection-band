@@ -44,9 +44,18 @@ void loop() {
     return;
   }
 
-  int16_t rawX = (Wire.read() << 8) | Wire.read();
-  int16_t rawY = (Wire.read() << 8) | Wire.read();
-  int16_t rawZ = (Wire.read() << 8) | Wire.read();
+  // Read MSB/LSB into separate statements: the order in which the two
+  // Wire.read() calls inside "(a << 8) | b" would execute is not
+  // specified by C++, which could silently swap high/low bytes.
+  const uint8_t xHigh = Wire.read();
+  const uint8_t xLow = Wire.read();
+  const uint8_t yHigh = Wire.read();
+  const uint8_t yLow = Wire.read();
+  const uint8_t zHigh = Wire.read();
+  const uint8_t zLow = Wire.read();
+  int16_t rawX = (xHigh << 8) | xLow;
+  int16_t rawY = (yHigh << 8) | yLow;
+  int16_t rawZ = (zHigh << 8) | zLow;
 
   // Convert raw values into g
   float ax = rawX / 4096.0f;
