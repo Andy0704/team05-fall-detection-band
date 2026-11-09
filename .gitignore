@@ -2,7 +2,10 @@
 __pycache__/
 *.pyc
 
-# Casual reference photos (hardware identification, etc.) are not
-# project deliverables; keep them out of git history.
-*.HEIC
-*.heic
+# Casual reference photos/datasheets dropped at the repo root (hardware
+# identification, etc.) are not project deliverables; keep them out of
+# git history. Deliverable PDFs (e.g. the proposal) belong in docs/ and
+# are not matched by this (it's root-only, no **).
+/*.HEIC
+/*.heic
+/*.pdf
