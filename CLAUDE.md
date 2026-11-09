@@ -21,7 +21,7 @@ Deliverables and code comments are in English. Team discussion may be in Traditi
 
 - ESP32-S3-N16R8 board (16 MB flash, 8 MB octal PSRAM). MPU6050 on I2C at address 0x68, SDA on GPIO 8, SCL on GPIO 9, powered from 3V3 (never 5V).
 - MPU6050 INT pin: GPIO4 (wired 2026-11-05).
-- Display: QAPASS 1602A, 16x2 character LCD (HD44780-compatible parallel interface, **no I2C backpack**). Driven in 4-bit mode. Wired 2026-11-09: RS=GPIO5, EN=GPIO6, D4=GPIO7, D5=GPIO15, D6=GPIO16, D7=GPIO17. RW tied to GND (write-only); V0 (contrast) through a potentiometer, not a GPIO; A/K (backlight) wired directly to power/GND.
+- Display: QAPASS 1602A, 16x2 character LCD (HD44780-compatible parallel interface, **no I2C backpack**). Driven in 4-bit mode. Wired 2026-11-09: RS=GPIO5, EN=GPIO6, D4=GPIO7, D5=GPIO15, D6=GPIO16, D7=GPIO17. RW tied to GND (write-only); V0 (contrast) through a potentiometer, not a GPIO; A/K (backlight) wired directly to power/GND; VSS to GND, VDD to the board's 5V pin (not 3V3 — the LCD-1602A datasheet specs 4.5-5.5V logic supply). **Status: still blank as of 2026-11-09** after fixing all of the above in turn; firmware confirmed not at fault (runs to completion every time, tested with minimal standalone sketches too). See PROJECT_STATUS.md "Resume here" for the troubleshooting log and next steps (multimeter check) and the fallback options if it can't be revived.
 - Cancel button: GPIO18 (wired 2026-11-09), 4-pin tactile button, `INPUT_PULLUP`, active-low.
 - Buzzer: GPIO10 (wired 2026-11-09), small electromagnetic buzzer, driven via `ledc` PWM (works whether it turns out to be active or passive — not confirmed from the part alone).
 - Power bank and strap: availability and pins are TBD (confirm with a TA). Do not invent pin numbers; add them here once wired.
@@ -45,7 +45,7 @@ Deliverables and code comments are in English. Team discussion may be in Traditi
 - **Sensor config:** accelerometer ±8 g (4096 LSB/g). DLPF first choice 44 Hz bandwidth (to confirm). Rate, DLPF setting and sensor position are fixed before collecting threshold data and written in every log header.
 - **Signals:** SVM = √(ax² + ay² + az²) in g. Trunk tilt θ = arccos(a_v / SVM) in degrees.
 - **Rule:** free-fall → impact within a window → trunk tilt above a threshold and SVM within 1 ± `INACTIVITY_SVM_DEV_G` of 1 g for `INACTIVITY_S` (tracked with a running min/max, no variance).
-- **Output:** buzzer + LCD1602 "FALL DETECTED". The button cancels. The alarm ends on button press or after `ALARM_TIMEOUT_S`, then returns to monitoring. Implemented in `firmware/src/main.cpp` `outputTask`.
+- **Output:** buzzer + LCD1602 "FALL DETECTED". The button cancels. The alarm ends on button press or after `ALARM_TIMEOUT_S`, then returns to monitoring. Implemented in `firmware/src/main.cpp` `outputTask`. The buzzer and button are both confirmed working; the LCD is not (see Hardware section). **The buzzer alone already satisfies spec 03's on-device output requirement** (CLAUDE.md "four mandatory specs" lists buzzer as a valid output on its own) — the LCD is a nice-to-have for the demo, not a blocker for that spec.
 - **No blocking:** display and logging run in lower-priority tasks fed by a queue (the output task reads the latest state from a shared variable rather than the log queue, since it only needs to react to state, not every sample). The LCD refreshes only on state changes and about once per second (`DISPLAY_REFRESH_MS`).
 - **I2C contention:** does not apply — the LCD1602 in hand is a parallel HD44780 module (no I2C backpack), so it uses its own dedicated GPIO pins and never shares the I2C bus with the MPU6050. Kept here as a note in case a future display swap goes back to I2C.
 - **Sensor health:** I2C failure or timeout, WHO_AM_I (register 0x75) not 0x68, `SENSOR_IDENTICAL_SAMPLES` identical samples in a row, or no new sample for `SENSOR_STALE_MS`. The device shows "SENSOR ERROR", beeps twice every 5 s, re-initialises every 1 s, and recovers after `SENSOR_RECOVER_SAMPLES` valid samples.
@@ -102,7 +102,7 @@ Values below are starting points. Only the three marked "handout" come from the 
 CLAUDE.md
 PROJECT_STATUS.md
 README.md          quick-start pointer for the team (hardware, build, branches)
-.claude/skills/fall-band-spec-check/SKILL.md
+SKILL.md           fall-band-spec-check skill (spec/rate/drop-rate checks)
 docs/              proposal, slides, final report
 firmware/          PlatformIO project (ESP32-S3 sources)
   platformio.ini

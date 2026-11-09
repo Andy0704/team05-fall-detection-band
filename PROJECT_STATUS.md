@@ -23,18 +23,17 @@ needs its own run on `firmware/src/main.cpp`.
 1. **Buzzer and cancel button both confirmed working** standalone
    (PWM test heard clearly - passive buzzer; button test showed clean
    HIGH/LOW transitions on press/release). No firmware changes needed
-   for either - wiring and code are both correct. **LCD is still
-   blank** after fixing V0, RW, and VSS/VDD wiring (see Log below) —
-   confirmed the firmware itself is fine (runs to completion every
-   time, even with minimal standalone test sketches), so this is an
-   electrical/wiring issue not yet found. Next: measure VSS/VDD at the
-   LCD's own pins with a multimeter, audit RS/EN/D4-D7 wiring
-   pin-by-pin.
-2. Once the LCD works, do real fall/no-fall trials with a mat and
-   spotter: validates the thresholds, confirms the `a_v` axis (open
-   decision #1), and exercises the full alarm -> cancel flow end to
-   end (not just each part tested in isolation as above).
-3. Still need a real 10-minute log with drop rate from `firmware/src/main.cpp`
+   for either - wiring and code are both correct. **The buzzer alone
+   already satisfies spec 03's output requirement**, so the project is
+   not blocked on the LCD for that spec.
+2. **LCD still blank** — see "LCD: repair steps and fallback plan"
+   below for the multimeter checks to try next and the fallback
+   options if it can't be revived.
+3. Real fall-test trials not started yet — see "Real fall-test
+   protocol" below for the full step-by-step (calibrating `a_v`,
+   running the Test plan tracker trials, splitting before tuning,
+   computing sensitivity/specificity).
+4. Still need a real 10-minute log with drop rate from `firmware/src/main.cpp`
    itself for spec 04 (only the standalone-sketch log exists so far).
 
 ## Repository and collaboration
@@ -83,9 +82,63 @@ needs its own run on `firmware/src/main.cpp`.
 5. DLPF setting (first choice 44 Hz) and final accelerometer range.
 6. ~~Toolchain (Arduino IDE or PlatformIO) and repo layout.~~ Decided: PlatformIO, project at `firmware/`, board `esp32-s3-devkitc-1` (chip variant ESP32-S3-N16R8).
 7. Roles: the proposal form has no roles section. Suggested split: sensor and sampling, detection rule, output, testing and measurement. Everyone must understand the whole project.
-8. Test logistics: mat, spotter, who performs the falls, where.
+8. Test logistics: mat, spotter, who performs the falls, where. The step-by-step procedure is now written (see "Real fall-test protocol" below); still need to actually schedule it — book a mat, confirm who's the faller/spotter/logger, and pick a location/date.
 
 ~~9. MPU6050 INT pin wiring.~~ Resolved 2026-11-05: SDA→GPIO8, SCL→GPIO9, INT→GPIO4, VCC→3V3, GND→GND. Matches `firmware/include/pins.h` and CLAUDE.md Hardware section, no code change needed. Still need to flash and confirm on hardware (item 3).
+
+## LCD: repair steps and fallback plan
+
+Blank (backlight on, no characters) since first wired 2026-11-09. Software, V0 (contrast), RW, and VSS/VDD power have all been checked and fixed in turn without success — see the Log entries below for the full trail. This section is the plan for whoever picks it up next.
+
+### Repair steps to try (in order)
+
+1. **Multimeter at the LCD's own pins, not the power rail.** Measure VSS (pin 1) to VDD (pin 2) directly on the LCD's 16-pin header. Expect close to 5 V. If it reads near 0 V or is noisy/unstable, the power isn't actually reaching the chip despite the rail itself being fine — look for a loose jumper or a dead breadboard contact between the rail and the LCD.
+2. **Continuity test (multimeter beep mode).** Confirm each of RS, EN, D4, D5, D6, D7 (LCD pins 4, 6, 11, 12, 13, 14) has an unbroken connection to GPIO 5, 6, 7, 15, 16, 17 respectively, and that no two of those lines are accidentally shorted to each other or to an adjacent breadboard row.
+3. **Move the LCD to a different breadboard row and swap jumper wires one at a time.** Old breadboards can have worn-out contacts in specific rows; a jumper that looks fine can have a broken conductor inside.
+4. If all of the above check out clean and it's still blank, the unit itself may simply be faulty after 10+ years unused — a real possibility, just not the first thing to suspect, since a floating RW/VSS/VDD already explained every symptom seen so far (blank screen, irregular flashing on insertion) without needing to invoke age.
+
+### Fallback plan if it can't be revived
+
+**The buzzer alone already satisfies spec 03's on-device output requirement** (CLAUDE.md "four mandatory specs" lists the buzzer as a valid output by itself) — a working LCD is not required to pass that spec, which lowers the urgency here.
+
+- **Option A (minimum effort):** ship without the LCD. Buzzer + cancel button is a complete, spec-compliant alarm on its own. For the team's own visibility during development, read the Serial log on a laptop — that's for debugging only (CLAUDE.md code rule 4), not counted as "the output" for spec 03 either way.
+- **Option B:** ask a TA for a replacement LCD-1602A unit, or borrow one from another team. Retest with the exact same firmware — no code changes needed if the replacement is pin-compatible, since `firmware/include/pins.h` already has the right GPIO assignments.
+- **Option C:** swap to an I2C OLED (what the original proposal assumed before this LCD was in hand). Frees GPIO 5/6/7/15/16/17 back up for other uses. Needs: a new display library (e.g. `Adafruit_SSD1306` + `Adafruit_GFX`), rewriting `outputTask`'s LCD calls in `firmware/src/main.cpp`, and re-reading the I2C-contention note in CLAUDE.md's Design decisions (it would become relevant again, since an I2C OLED shares the bus with the MPU6050).
+- Whichever option is chosen, update CLAUDE.md's Hardware/Design-decisions sections and this file's Summary to describe only the display actually in use — don't leave the old and new display both described at once.
+
+## Real fall-test protocol
+
+Not started yet. Safety first (CLAUDE.md): **falls only onto a mat, with a spotter, never from height. Stop immediately if anyone feels unsafe.**
+
+### 0. Before the first fall
+
+1. Flash the latest `output-alarm` firmware (or `main`, once that branch is merged).
+2. Put the band on the person who will do the fall trials, worn at the waist as actually intended for use (not just resting on a desk).
+3. With them standing still, read the Serial log's `ax,ay,az` for about 5 s and note which axis sits closest to ±1 g — that is the real `a_v` for this mounting. If it is not `az`, update `verticalComponentG()` in `firmware/src/fall_detector.cpp` *before* running any trials, and record the change here with today's date and the measured values (this resolves open decision #1 with real data instead of the current placeholder).
+4. Confirm roles: the **faller** (healthy team member, able to bail out safely), the **spotter** (physically supports/catches, never lets the faller hit from height), and whoever **watches the Serial log** / operates the laptop and the cancel button.
+
+### 1. Run the trials
+
+Use the categories and counts in the Test plan tracker below. For each individual trial:
+
+1. Confirm the wearer is in a clear `MONITORING` state (Serial log, and LCD once it works) before starting.
+2. Perform the action (fall, sit-down, jump, etc.).
+3. Watch for `FALL_DETECTED` within a few seconds (Serial log `state` column; LCD text + buzzer once the LCD works).
+4. Record: trial number, category, expected result, actual result (alarm / no alarm), and roughly where in the log it happened (counter or `micros` value).
+5. Press the cancel button to clear the alarm before the next trial.
+6. Save the full session's raw Serial log to `data/raw/` with a descriptive name (e.g. `data/raw/2026-11-16_fall-trials-session1.log`) — capture the whole session in one file rather than per-trial snippets, and never edit it afterward.
+
+### 2. Split before tuning (CLAUDE.md honesty rule)
+
+- Use about two thirds of each category's trials to look at the actual measured SVM/tilt/duration values during real falls vs. real non-falls, and adjust thresholds in `firmware/include/config.h` using that data. Cite the specific log and trial numbers that justified each change, and update the Threshold register below (new value, source = the log file, Validated = yes).
+- Hold out the remaining third completely untouched during tuning. Run those only after threshold tuning is finished, and report their results as measured, even if worse than the tuning set.
+
+### 3. Compute and report
+
+- Sensitivity = detected falls ÷ all fall trials. Specificity = non-fall trials without an alarm ÷ all non-fall trials.
+- Report with counts per activity, e.g. "9/10 falls detected, 2 false alarms in 20 sit-downs" — never a bare percentage with no counts.
+- Cite the raw log file(s) and the script that computed the numbers (extend `tools/analyze_log.py`, or write a new script under `tools/`, rather than computing by hand).
+- State limitations explicitly: mat landings are softer than a real floor (impact peak likely underestimated); participants are healthy team members, not the band's actual target population (older adults at fall risk).
 
 ## Threshold register
 
@@ -145,3 +198,4 @@ needs its own run on `firmware/src/main.cpp`.
 - 2026-11-09: **LCD still blank (backlight on, no characters) — unresolved, parked.** Troubleshooting so far, in order, each one re-tested and still blank: (1) V0 tied to VCC/floating -> moved to GND (max contrast). (2) RW floating -> tied to GND. (3) Read SunFounder's LCD-1602A datasheet (`CN0295D other related document.pdf`, dropped in repo root — not committed, see `.gitignore`): spec requires VDD-VSS = 4.5-5.5V, but VSS/VDD were never wired at all (only the backlight A/K pins were connected, which is why the backlight glows but the logic IC never powers on) -> wired VSS to GND and VDD to the board's 5V pin. Still blank. (4) Confirmed twice, independently, that the firmware is not the problem: added temporary `Serial.println` tracing in `outputTask` showing `lcd.print()` executes every second (stashed, not committed — `git stash list`); then swapped `firmware/src/main.cpp` for a minimal standalone `lcd.begin()`/`lcd.print()` test sketch (also reverted, not committed) — Serial confirms the code runs to completion every time, so this is purely electrical, not software. Next step: measure VSS/VDD voltage directly at the LCD's own header pins (not just at the power rail) with a multimeter, and visually audit RS/EN/D4-D7 wiring against GPIO 5/6/7/15/16/17 pin-by-pin. Paused for now to test the buzzer instead.
 - 2026-11-09: **Buzzer confirmed working.** Standalone test (temporarily swapped into `firmware/src/main.cpp`, reverted after, not committed): cycled PWM 2kHz 50% duty (1s) / off (1s) / plain `digitalWrite` HIGH, no PWM (1s) / off (1s), repeating. Clearly loud during the PWM phase, only a faint transient click (pin-reconfiguration artifact, not a real tone) during the plain-DC phase — so it's a **passive buzzer**, consistent with needing the PWM drive `outputTask` already uses (`BUZZER_PWM_FREQ_HZ`/`BUZZER_PWM_DUTY`). No firmware change needed; wiring and code for the buzzer are both correct. Restored the real firmware from git and reflashed; sampling/logging still running fine afterward (counter past 1800, still MONITORING).
 - 2026-11-09: **Cancel button confirmed working.** Standalone test (same temporary-swap pattern, reverted after, not committed): `pinMode(BUTTON_PIN, INPUT_PULLUP)`, print on every change. After a hardware reset, immediately saw clean `HIGH (released)` / `LOW (pressed)` transitions on press/release, no stuck state or chatter. Wiring and the `INPUT_PULLUP` assumption in `debouncedButtonPressed()` (`firmware/src/main.cpp`) are both correct. Restored the real firmware and reflashed. Button cancel's full behavior (clearing `FALL_DETECTED` and calling `FallDetector::reset()`) still needs an end-to-end check once a real alarm can be triggered.
+- 2026-11-09: Wrote two new planning sections: "LCD: repair steps and fallback plan" (multimeter/continuity checks to try next, plus three fallback options — ship buzzer-only, get a replacement LCD-1602A, or swap to an I2C OLED — each with the explicit note that the buzzer alone already satisfies spec 03) and "Real fall-test protocol" (role assignment, calibrating `a_v` from a real standing measurement before any trial, the two-thirds/one-third tuning split, and how to compute and report sensitivity/specificity). Also fixed `CLAUDE.md`'s repo-layout entry for the skill file (it's `SKILL.md` at the repo root, not `.claude/skills/fall-band-spec-check/SKILL.md`, which never existed) and replaced the remaining "OLED" wording in `SKILL.md` with "LCD".
