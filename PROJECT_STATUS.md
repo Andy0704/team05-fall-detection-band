@@ -20,18 +20,20 @@ from a standalone sketch, not the production firmware — spec 04 still
 needs its own run on `firmware/src/main.cpp`.
 
 **Resume here next session:**
-1. **Buzzer confirmed working** (standalone PWM test, heard clearly) —
-   it's a passive buzzer, needs the PWM drive `outputTask` already uses,
-   no firmware change needed. **LCD is still blank** after fixing V0,
-   RW, and VSS/VDD wiring (see Log below) — confirmed the firmware
-   itself is fine (runs to completion every time, even with a minimal
-   standalone test sketch), so this is an electrical/wiring issue not
-   yet found. Next: measure VSS/VDD at the LCD's own pins with a
-   multimeter, audit RS/EN/D4-D7 wiring pin-by-pin. Cancel button still
-   not confirmed working.
-2. Then: real fall/no-fall trials with a mat and spotter to validate the
-   thresholds and confirm the `a_v` axis (open decision #1) — see "Open
-   decisions" below.
+1. **Buzzer and cancel button both confirmed working** standalone
+   (PWM test heard clearly - passive buzzer; button test showed clean
+   HIGH/LOW transitions on press/release). No firmware changes needed
+   for either - wiring and code are both correct. **LCD is still
+   blank** after fixing V0, RW, and VSS/VDD wiring (see Log below) —
+   confirmed the firmware itself is fine (runs to completion every
+   time, even with minimal standalone test sketches), so this is an
+   electrical/wiring issue not yet found. Next: measure VSS/VDD at the
+   LCD's own pins with a multimeter, audit RS/EN/D4-D7 wiring
+   pin-by-pin.
+2. Once the LCD works, do real fall/no-fall trials with a mat and
+   spotter: validates the thresholds, confirms the `a_v` axis (open
+   decision #1), and exercises the full alarm -> cancel flow end to
+   end (not just each part tested in isolation as above).
 3. Still need a real 10-minute log with drop rate from `firmware/src/main.cpp`
    itself for spec 04 (only the standalone-sketch log exists so far).
 
@@ -59,7 +61,7 @@ needs its own run on `firmware/src/main.cpp`.
 | 01 Rate | Measured rate in Hz from a real run, shown on screen | In progress: 5 s smoke test done, needs on-device display (not Serial) and a longer run | **100.0000 Hz** (5.1 s smoke test) | `data/raw/2026-11-05_sampling-task-smoketest.log` via `tools/analyze_log.py` |
 | 02 Real time | Decision made on the board while the signal arrives | In progress: `FallDetector::update()` now runs in the sampling task on every sample, on the board | n/a | `firmware/src/fall_detector.cpp` |
 | 03 Rule | One line of code: named constant with unit | Implemented: free-fall -> impact (within window) -> trunk tilt + inactivity, all named constants in `firmware/include/config.h`. Not yet validated against real fall data (thresholds still "first guess"/"handout example") | idle sanity check: 680/681 samples MONITORING, 1 brief FREE_FALL from handling, 0 FALL_DETECTED | `data/raw/2026-11-05_detection-rule-idle-sanity.log`, summarized in `data/processed/2026-11-05_detection-rule-idle-sanity.txt` |
-| 03 Output | Buzzer / LCD reacts with no laptop | Implemented on `output-alarm` branch (not merged): `outputTask` in `firmware/src/main.cpp` shows "FALL DETECTED" on the LCD1602 and drives the buzzer via PWM on `FALL_DETECTED`, clears on button press or `ALARM_TIMEOUT_S`. Not yet confirmed working by eye/ear — only a Serial sanity check (no crash) so far | n/a (not yet observed in person) | `firmware/src/main.cpp` |
+| 03 Output | Buzzer / LCD reacts with no laptop | Implemented on `output-alarm` branch (not merged). Buzzer (PWM, passive) and cancel button both confirmed working standalone. **LCD still blank, unresolved** — see "Resume here" above. Not yet seen end to end (real alarm trigger -> LCD text + buzzer + button cancel together) | buzzer/button: confirmed by ear/hand; LCD: not yet (still blank) | `firmware/src/main.cpp` |
 | 04 Ten min | Committed raw log and drop rate from it | Preliminary evidence only: Joaquin's standalone validation sketch (not the team's FreeRTOS firmware) ran 10 min with 0 drops. The production firmware (`firmware/src/main.cpp`) still needs its own 10-minute run before this spec is actually satisfied | **100.0000 Hz, 0.000000% drop rate** (611.63 s, standalone sketch) | `data/raw/2026-11-05_joaquin-standalone-validation_10min_100Hz.log` via `tools/analyze_log.py`, independently re-verified; see `data/processed/2026-11-05_joaquin-standalone-validation_10min_100Hz_rate.txt` |
 
 ## Decisions made (from the revised proposal)
@@ -142,3 +144,4 @@ needs its own run on `firmware/src/main.cpp`.
 - 2026-11-09: Received a QAPASS 1602A LCD (parallel HD44780, no I2C backpack, confirmed from photos — plain 16-pin header, no I2C adapter board), a 4-pin button, and a small electromagnetic buzzer (active/passive not determinable from the part alone). On branch `output-alarm` (merged with `main`): wired RS=GPIO5, EN=GPIO6, D4=GPIO7, D5=GPIO15, D6=GPIO16, D7=GPIO17, button=GPIO18, buzzer=GPIO10 (all from the ESP32-S3-DevKitC-1 left header row, skipping pins already used and the strapping pins). Implemented `outputTask` in `firmware/src/main.cpp`: shows "FALL DETECTED" + drives the buzzer via `ledc` PWM (works for either buzzer type) when the detector reaches `FALL_DETECTED`, clears on a debounced button press or `ALARM_TIMEOUT_S`, then calls `FallDetector::reset()` via a shared flag back to the sampling task. Idle status line refreshes on state change or once a second, not every sample (`DISPLAY_REFRESH_MS`). Added `arduino-libraries/LiquidCrystal` as a `platformio.ini` dependency. Builds clean; flashed and ran for 430+ samples with no crash, all MONITORING — but nobody has yet confirmed by eye/ear that the LCD/buzzer/button actually work, since this was only a Serial-log sanity check.
 - 2026-11-09: **LCD still blank (backlight on, no characters) — unresolved, parked.** Troubleshooting so far, in order, each one re-tested and still blank: (1) V0 tied to VCC/floating -> moved to GND (max contrast). (2) RW floating -> tied to GND. (3) Read SunFounder's LCD-1602A datasheet (`CN0295D other related document.pdf`, dropped in repo root — not committed, see `.gitignore`): spec requires VDD-VSS = 4.5-5.5V, but VSS/VDD were never wired at all (only the backlight A/K pins were connected, which is why the backlight glows but the logic IC never powers on) -> wired VSS to GND and VDD to the board's 5V pin. Still blank. (4) Confirmed twice, independently, that the firmware is not the problem: added temporary `Serial.println` tracing in `outputTask` showing `lcd.print()` executes every second (stashed, not committed — `git stash list`); then swapped `firmware/src/main.cpp` for a minimal standalone `lcd.begin()`/`lcd.print()` test sketch (also reverted, not committed) — Serial confirms the code runs to completion every time, so this is purely electrical, not software. Next step: measure VSS/VDD voltage directly at the LCD's own header pins (not just at the power rail) with a multimeter, and visually audit RS/EN/D4-D7 wiring against GPIO 5/6/7/15/16/17 pin-by-pin. Paused for now to test the buzzer instead.
 - 2026-11-09: **Buzzer confirmed working.** Standalone test (temporarily swapped into `firmware/src/main.cpp`, reverted after, not committed): cycled PWM 2kHz 50% duty (1s) / off (1s) / plain `digitalWrite` HIGH, no PWM (1s) / off (1s), repeating. Clearly loud during the PWM phase, only a faint transient click (pin-reconfiguration artifact, not a real tone) during the plain-DC phase — so it's a **passive buzzer**, consistent with needing the PWM drive `outputTask` already uses (`BUZZER_PWM_FREQ_HZ`/`BUZZER_PWM_DUTY`). No firmware change needed; wiring and code for the buzzer are both correct. Restored the real firmware from git and reflashed; sampling/logging still running fine afterward (counter past 1800, still MONITORING).
+- 2026-11-09: **Cancel button confirmed working.** Standalone test (same temporary-swap pattern, reverted after, not committed): `pinMode(BUTTON_PIN, INPUT_PULLUP)`, print on every change. After a hardware reset, immediately saw clean `HIGH (released)` / `LOW (pressed)` transitions on press/release, no stuck state or chatter. Wiring and the `INPUT_PULLUP` assumption in `debouncedButtonPressed()` (`firmware/src/main.cpp`) are both correct. Restored the real firmware and reflashed. Button cancel's full behavior (clearing `FALL_DETECTED` and calling `FallDetector::reset()`) still needs an end-to-end check once a real alarm can be triggered.
