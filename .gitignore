@@ -2,6 +2,10 @@
 __pycache__/
 *.pyc
 
+# PlatformIO build output and generated editor config (project root = repo root).
+/.pio/
+/.vscode/
+
 # Casual reference photos/datasheets dropped at the repo root (hardware
 # identification, etc.) are not project deliverables; keep them out of
 # git history. Deliverable PDFs (e.g. the proposal) belong in docs/ and

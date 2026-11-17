@@ -26,7 +26,7 @@ Deliverables and code comments are in English. Team discussion may be in Traditi
 - Buzzer: GPIO10 (wired 2026-11-09), small electromagnetic buzzer, driven via `ledc` PWM (works whether it turns out to be active or passive — not confirmed from the part alone).
 - Power bank and strap: availability and pins are TBD (confirm with a TA). Do not invent pin numbers; add them here once wired.
 - If a module does not appear on the I2C bus, ask a TA for a replacement before debugging code.
-- Toolchain: PlatformIO, project root at `firmware/`. Board id `esp32-s3-devkitc-1`, framework `arduino`.
+- Toolchain: PlatformIO, project root is the repo root (`platformio.ini` there, with `src_dir`/`include_dir` pointing at `firmware/src` and `firmware/include`, so PIO Home detects it). Board id `esp32-s3-devkitc-1`, framework `arduino`.
 - Which physical axis (`ax`/`ay`/`az`) is `a_v` (vertical) depends on the final waist-mounting orientation and is not confirmed yet — see PROJECT_STATUS.md open decision #1. The firmware currently assumes `az` as a placeholder (`firmware/src/fall_detector.cpp`); update it once the band is actually worn.
 
 ## The four mandatory specs (hard constraints)
@@ -104,8 +104,9 @@ PROJECT_STATUS.md
 README.md          quick-start pointer for the team (hardware, build, branches)
 SKILL.md           fall-band-spec-check skill (spec/rate/drop-rate checks)
 docs/              proposal, slides, final report
-firmware/          PlatformIO project (ESP32-S3 sources)
-  platformio.ini
+platformio.ini     PlatformIO config (src_dir/include_dir -> firmware/)
+firmware/          ESP32-S3 sources
+  git_version.py   pre-build script (commit hash for log header)
   include/         pins.h, config.h, fall_detector.h
   src/             main.cpp, fall_detector.cpp
 experiments/       standalone validation sketches, not the team firmware

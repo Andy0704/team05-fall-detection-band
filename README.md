@@ -21,10 +21,10 @@ number in this README, since it is updated far more often.
 
 ## Toolchain
 
-PlatformIO. Project root is `firmware/`.
+PlatformIO. `platformio.ini` is at the repo root (open the repo folder in
+VS Code / PlatformIO Home); sources are in `firmware/src` and `firmware/include`.
 
 ```
-cd firmware
 pio run                                    # build
 pio run -t upload --upload-port <port>     # flash
 pio device monitor -p <port> -b 115200     # view Serial output (debug only)
@@ -35,7 +35,8 @@ pio device monitor -p <port> -b 115200     # view Serial output (debug only)
 ```
 CLAUDE.md          guidance for this project (read this first)
 PROJECT_STATUS.md  current progress, measured numbers, open decisions
-firmware/          PlatformIO project (ESP32-S3 sources)
+platformio.ini     PlatformIO config (points at firmware/src, firmware/include)
+firmware/          ESP32-S3 sources
 tools/             log analysis scripts, e.g. tools/analyze_log.py
 data/raw/          raw serial logs, committed, never edited or re-saved
 data/processed/    plots and tables derived from raw logs

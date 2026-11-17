@@ -8,14 +8,16 @@ namespace {
 
 constexpr float RAD_TO_DEG = 57.29577951308232f;
 
-// PLACEHOLDER: a_v (the body's vertical axis component) is assumed to be
-// az until the team confirms the physical mounting orientation on the
-// waist (PROJECT_STATUS.md open decision #1). Update this if a different
-// axis turns out to be vertical once the band is actually worn.
+// a_v (the body's vertical axis component) is -ax for the current waist
+// mounting. Source: data/raw/2026-11-17_onbody-pilot/
+// 2026-11-17_standing-still_axis-check.log (wearer standing still, 14.76 s):
+// mean ax = -0.936 g, ay = 0.044 g, az = 0.258 g, so gravity lies along -ax
+// (15.6 deg off). Negated so that upright standing gives tilt near 0 deg.
+// Re-check this if the band's mounting orientation changes.
 float verticalComponentG(float ax_g, float ay_g, float az_g) {
-  (void)ax_g;
   (void)ay_g;
-  return az_g;
+  (void)az_g;
+  return -ax_g;
 }
 
 }  // namespace
