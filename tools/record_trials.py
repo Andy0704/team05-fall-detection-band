@@ -116,6 +116,8 @@ def main():
                     help="one label, or comma-separated list with one per loop")
     ap.add_argument("--outdir", default="data/raw")
     ap.add_argument("--loops", type=int, default=LOOPS)
+    ap.add_argument("--ready", type=float, default=READY_S,
+                    help="get-ready seconds before loop 1 (not part of the loops)")
     args = ap.parse_args()
 
     acts = [a.strip() for a in args.activity.split(",") if a.strip()]
@@ -154,7 +156,7 @@ def main():
                   ["Faller: stand on the mat, band at the waist.",
                    "Spotter: in position.",
                    f"First loop: {acts[0]}"],
-                  READY_S, "Session start")
+                  args.ready, "Session start")
         rec.mark()
         for i in range(args.loops):
             label = f"Loop {i + 1}/{args.loops}   activity: {acts[i]}"
