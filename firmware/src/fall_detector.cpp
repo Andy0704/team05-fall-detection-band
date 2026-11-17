@@ -30,6 +30,8 @@ const char *sensorStateName(SensorState state) {
       return "FREE_FALL";
     case SensorState::IMPACT_WAIT:
       return "IMPACT_WAIT";
+    case SensorState::SETTLE:
+      return "SETTLE";
     case SensorState::INACTIVITY_CHECK:
       return "INACTIVITY_CHECK";
     case SensorState::FALL_DETECTED:
@@ -50,6 +52,7 @@ SensorState FallDetector::update(bool valid, float ax_g, float ay_g,
     switch (state_) {
       case SensorState::FREE_FALL:
       case SensorState::IMPACT_WAIT:
+      case SensorState::SETTLE:
       case SensorState::INACTIVITY_CHECK:
         state_ = SensorState::MONITORING;
         break;
@@ -90,23 +93,23 @@ SensorState FallDetector::update(bool valid, float ax_g, float ay_g,
       if (elapsedMs > IMPACT_WINDOW_MS) {
         state_ = SensorState::MONITORING; // no impact within the window
       } else if (svm > IMPACT_THRESHOLD_G) {
-        // Tilt is only needed once an impact is seen, which also
-        // guarantees svm > IMPACT_THRESHOLD_G > 0 here, so the a_v/svm
-        // division below can never divide by zero.
-        const float av = verticalComponentG(ax_g, ay_g, az_g);
-        float ratio = av / svm;
-        if (ratio > 1.0f) ratio = 1.0f;
-        if (ratio < -1.0f) ratio = -1.0f;
-        const float tiltDeg = acosf(ratio) * RAD_TO_DEG;
+        state_ = SensorState::SETTLE;
+        phase_start_us_ = now_us;
+        impact_us_ = now_us;
+      }
+      break;
+    }
 
-        if (tiltDeg > TILT_THRESHOLD_DEG) {
-          state_ = SensorState::INACTIVITY_CHECK;
-          phase_start_us_ = now_us;
-          svm_min_g_ = svm;
-          svm_max_g_ = svm;
-        } else {
-          state_ = SensorState::MONITORING; // impact without a fall-like tilt
-        }
+    case SensorState::SETTLE: {
+      // Ignore bounces and rolling right after the impact. Seeding the
+      // still check with the impact sample (> IMPACT_THRESHOLD_G) would
+      // make it fail on the very next sample.
+      const uint32_t elapsedMs = (now_us - phase_start_us_) / 1000;
+      if (elapsedMs >= POST_IMPACT_SETTLE_MS) {
+        state_ = SensorState::INACTIVITY_CHECK;
+        phase_start_us_ = now_us;  // start of the current still window
+        svm_min_g_ = svm;
+        svm_max_g_ = svm;
       }
       break;
     }
@@ -115,17 +118,32 @@ SensorState FallDetector::update(bool valid, float ax_g, float ay_g,
       if (svm < svm_min_g_) svm_min_g_ = svm;
       if (svm > svm_max_g_) svm_max_g_ = svm;
 
-      const bool stillMoving =
+      const bool moved =
           (svm_max_g_ - STANDING_SVM_G > INACTIVITY_SVM_DEV_G) ||
           (STANDING_SVM_G - svm_min_g_ > INACTIVITY_SVM_DEV_G);
-      if (stillMoving) {
-        state_ = SensorState::MONITORING;
+      if (moved) {
+        // Restart the still window from this sample rather than abort,
+        // so e.g. rolling over once after landing still counts.
+        phase_start_us_ = now_us;
+        svm_min_g_ = svm;
+        svm_max_g_ = svm;
+      } else if ((now_us - phase_start_us_) / 1000 >= INACTIVITY_MS) {
+        // Still for INACTIVITY_MS: now check the lying posture. Here svm
+        // is within STANDING_SVM_G +/- INACTIVITY_SVM_DEV_G (> 0), so the
+        // division is safe and the reading is mostly gravity.
+        const float av = verticalComponentG(ax_g, ay_g, az_g);
+        float ratio = av / svm;
+        if (ratio > 1.0f) ratio = 1.0f;
+        if (ratio < -1.0f) ratio = -1.0f;
+        const float tiltDeg = acosf(ratio) * RAD_TO_DEG;
+        state_ = (tiltDeg > TILT_THRESHOLD_DEG)
+                     ? SensorState::FALL_DETECTED
+                     : SensorState::MONITORING;  // still but upright
         break;
       }
 
-      const uint32_t elapsedMs = (now_us - phase_start_us_) / 1000;
-      if (elapsedMs >= INACTIVITY_MS) {
-        state_ = SensorState::FALL_DETECTED;
+      if ((now_us - impact_us_) / 1000 > INACTIVITY_TIMEOUT_MS) {
+        state_ = SensorState::MONITORING;  // never lay still: not a fall
       }
       break;
     }

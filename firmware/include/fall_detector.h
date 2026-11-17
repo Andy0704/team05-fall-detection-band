@@ -1,5 +1,6 @@
-// Fall-detection rule: free-fall -> impact within a window -> trunk tilt
-// + inactivity (CLAUDE.md "Design decisions"). The output/alarm module
+// Fall-detection rule (CLAUDE.md "Design decisions"): free-fall -> impact
+// within a window -> settle -> lying still (SVM near 1 g for INACTIVITY_MS)
+// with trunk tilt above TILT_THRESHOLD_DEG, measured while lying. The output/alarm module
 // (firmware/src/main.cpp outputTask) consumes the state this returns and
 // calls reset() once the alarm ends (cancel button or ALARM_TIMEOUT_S).
 #pragma once
@@ -10,6 +11,7 @@ enum class SensorState : uint8_t {
   MONITORING,
   FREE_FALL,
   IMPACT_WAIT,
+  SETTLE,
   INACTIVITY_CHECK,
   FALL_DETECTED,
 };
@@ -33,6 +35,7 @@ class FallDetector {
  private:
   SensorState state_ = SensorState::MONITORING;
   uint32_t phase_start_us_ = 0;
+  uint32_t impact_us_ = 0;  // when the impact was seen (for the timeout)
   float svm_min_g_ = 0.0f;
   float svm_max_g_ = 0.0f;
 };
