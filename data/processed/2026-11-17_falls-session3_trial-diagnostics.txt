@@ -1,0 +1,15 @@
+log: data/raw/2026-11-17_falls_session3.log
+sheet: data/raw/2026-11-17_falls_session3_trials.csv
+trial activity        peak_g  peak_c  ff_ms  min_g  tilt@pk  tilt_lie  lie_axis   states
+    1 fall-backward     6.09    4058     20   0.32     35.8      98.5  +z(+1.07)  FREE_FALL|MONITORING
+    2 fall-right        6.18    8276     40   0.27     52.6      90.6  +y(+0.93)  FREE_FALL|MONITORING
+    3 fall-left         4.44   12464     10   0.36     64.8      94.2  -y(-0.86)  FREE_FALL|MONITORING
+    4 fall-forward      1.96   16377     40   0.30      5.0      64.4  -z(-0.80)  FREE_FALL|MONITORING
+    5 fall-backward     3.77   21327      0   0.60     39.7      95.7  +z(+1.09)  MONITORING
+    6 fall-right        5.78   25222     80   0.26     55.4      95.5  +y(+0.80)  FREE_FALL|IMPACT_WAIT|MONITORING
+    7 fall-left         3.52   29247      0   0.47     60.4      90.4  -y(-0.98)  MONITORING
+    8 fall-forward      4.69   31689     50   0.06     70.5      56.4  -z(-0.71)  FREE_FALL|MONITORING
+    9 sit-down          3.21   35851      0   0.74     28.6      41.9  -x(-0.76)  FREE_FALL|MONITORING
+   10 lie-down          4.78   39357      0   0.64     40.4      95.9  +z(+1.08)  MONITORING
+
+rule: free-fall < 0.4 g for >= 50 ms -> impact > 2.5 g -> tilt > 60.0 deg -> still 2 s

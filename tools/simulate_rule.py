@@ -17,7 +17,8 @@ Every parameter can be overridden on the command line for tuning, which
 must only use the tuning set (CLAUDE.md data rules), never held-out trials.
 
 With --sheet, prints per trial whether the simulated rule reached
-FALL_DETECTED inside that trial's loop window (counter_start..counter_end).
+FALL_DETECTED inside that trial's loop window (counter_start..counter_end,
+or counter_ready..counter_lie_end for operator-paced sheets).
 After a simulated detection the detector is reset on the next sample, like
 a cancel press, so later trials are unaffected.
 """
@@ -45,8 +46,8 @@ def tilt_deg(ax, ay, az, svm):
 
 
 class Detector:
-    def __init__(self, p, rule):
-        self.p, self.rule = p, rule
+    def __init__(self, p, rule, no_freefall=False):
+        self.p, self.rule, self.no_freefall = p, rule, no_freefall
         self.state = "MONITORING"
         self.t0 = self.t_imp = 0
         self.lo = self.hi = 0.0
@@ -60,7 +61,11 @@ class Detector:
         svm = math.sqrt(ax * ax + ay * ay + az * az)
         el = ((us - self.t0) & 0xFFFFFFFF) // 1000
         if S == "MONITORING":
-            if svm < p["freefall_threshold_g"]:
+            if self.no_freefall and self.rule == "v2":
+                # what-if only (not in firmware): impact alone starts the sequence
+                if svm > p["impact_threshold_g"]:
+                    self.state, self.t0, self.t_imp = "SETTLE", us, us
+            elif svm < p["freefall_threshold_g"]:
                 self.state, self.t0 = "FREE_FALL", us
         elif S == "FREE_FALL":
             if svm < p["freefall_threshold_g"]:
@@ -107,6 +112,20 @@ class Detector:
         return self.state
 
 
+def trial_window(r):
+    """(lo, hi, lie_end) counters for a trial row, for either sheet format.
+
+    Old fixed-timer sheets: counter_start..counter_end. Operator-paced sheets
+    (record_trials.py since 4d31239): counter_ready..counter_lie_end, the
+    lying phase ends at counter_lie_end.
+    """
+    if r.get("counter_start"):
+        return int(r["counter_start"]), int(r["counter_end"]), None
+    if r.get("counter_ready") and r.get("counter_lie_end"):
+        return int(r["counter_ready"]), int(r["counter_lie_end"]), int(r["counter_lie_end"])
+    return None
+
+
 def load(path):
     rows = []
     for line in open(path, errors="replace"):
@@ -131,13 +150,15 @@ def main():
     ap.add_argument("--sheet")
     ap.add_argument("--labels")
     ap.add_argument("--rule", choices=["v1", "v2"], default="v2")
+    ap.add_argument("--no-freefall", action="store_true",
+                    help="what-if (v2 only, NOT in firmware): skip the free-fall stage")
     for k, v in DEFAULTS.items():
         ap.add_argument("--" + k.replace("_", "-"), type=type(v), default=v)
     a = ap.parse_args()
     p = {k: getattr(a, k) for k in DEFAULTS}
 
     rows = load(a.log)
-    det = Detector(p, a.rule)
+    det = Detector(p, a.rule, a.no_freefall)
     sim = {}
     agree = 0
     reached = set()
@@ -148,7 +169,7 @@ def main():
         agree += (s == logged)
         if s == "FALL_DETECTED":
             det.state = "MONITORING"  # emulate cancel / reset()
-    print(f"log: {a.log}  rule: {a.rule}  samples: {len(rows)}")
+    print(f"log: {a.log}  rule: {a.rule}{' +no-freefall (what-if)' if a.no_freefall else ''}  samples: {len(rows)}")
     print("params: " + " ".join(f"{k}={v}" for k, v in p.items()))
     print(f"agreement with logged state column: {agree}/{len(rows)} "
           f"({100.0 * agree / len(rows):.2f}%)  [meaningful only for logs from the same rule]")
@@ -162,7 +183,11 @@ def main():
         order = ["MONITORING", "FREE_FALL", "IMPACT_WAIT", "SETTLE", "INACTIVITY_CHECK", "FALL_DETECTED"]
         for r in csv.DictReader(open(a.sheet)):
             t = int(r["trial"])
-            seen = {sim[c] for c in range(int(r["counter_start"]), int(r["counter_end"])) if c in sim}
+            w = trial_window(r)
+            if w is None:
+                print(f"{t:5d} {labels.get(t, r['activity']):<15} skipped")
+                continue
+            seen = {sim[c] for c in range(w[0], w[1] + 1) if c in sim}
             far = max(seen, key=order.index) if seen else "n/a"
             print(f"{t:5d} {labels.get(t, r['activity']):<15} {'YES' if 'FALL_DETECTED' in seen else 'no':<9} {far}")
 

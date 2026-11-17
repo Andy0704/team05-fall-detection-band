@@ -1,0 +1,11 @@
+trial,activity,expected,buzzer_YN,states_seen,counter_ready,counter_fall_cue,counter_landed,counter_lie_end,peak_counter,peak_svm_g,sync_ok,notes
+1,fall-backward,fall,,FREE_FALL|MONITORING,3244,3748,5150,6359,4058,6.09,no,
+2,fall-right,fall,,FREE_FALL|MONITORING,7468,7971,8425,9634,8276,6.18,no,
+3,fall-left,fall,,FREE_FALL|MONITORING,11650,12153,13332,14542,12464,4.44,no,
+4,fall-forward,fall,,FREE_FALL|MONITORING,15570,16073,16819,18018,16377,1.96,no,
+5,fall-backward,fall,,MONITORING,20468,20972,21718,22922,21327,3.77,no,
+6,fall-right,fall,,FREE_FALL|IMPACT_WAIT|MONITORING,24354,24857,25653,26863,25222,5.78,no,
+7,fall-left,fall,,MONITORING,28365,28869,29453,30652,29247,3.52,no,
+8,fall-forward,fall,,FREE_FALL|MONITORING,30773,31276,31881,33080,31689,4.69,no,
+9,sit-down,no_alarm,,FREE_FALL|MONITORING,34985,35489,36164,37364,35851,3.21,no,
+10,lie-down,no_alarm,,MONITORING,38382,38885,39762,40963,39357,4.78,no,

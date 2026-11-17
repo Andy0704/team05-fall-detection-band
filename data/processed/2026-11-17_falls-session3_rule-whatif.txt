@@ -1,0 +1,56 @@
+# What-if simulations on session 3 (tuning set, exploration only; NOT adopted in firmware)
+# produced by tools/simulate_rule.py
+
+### args: (firmware defaults)
+log: data/raw/2026-11-17_falls_session3.log  rule: v2  samples: 41023
+params: freefall_threshold_g=0.4 freefall_min_ms=50 impact_threshold_g=2.5 impact_window_ms=500 tilt_threshold_deg=60.0 post_impact_settle_ms=1000 inactivity_ms=2000 inactivity_svm_dev_g=0.15 inactivity_timeout_ms=6000 standing_svm_g=1.0
+agreement with logged state column: 41023/41023 (100.00%)  [meaningful only for logs from the same rule]
+states reached in simulation: FREE_FALL|IMPACT_WAIT|MONITORING
+
+trial activity        detected  furthest_state
+    1 fall-backward   no        FREE_FALL
+    2 fall-right      no        FREE_FALL
+    3 fall-left       no        FREE_FALL
+    4 fall-forward    no        FREE_FALL
+    5 fall-backward   no        MONITORING
+    6 fall-right      no        IMPACT_WAIT
+    7 fall-left       no        MONITORING
+    8 fall-forward    no        FREE_FALL
+    9 sit-down        no        FREE_FALL
+   10 lie-down        no        MONITORING
+
+### args: --no-freefall
+log: data/raw/2026-11-17_falls_session3.log  rule: v2 +no-freefall (what-if)  samples: 41023
+params: freefall_threshold_g=0.4 freefall_min_ms=50 impact_threshold_g=2.5 impact_window_ms=500 tilt_threshold_deg=60.0 post_impact_settle_ms=1000 inactivity_ms=2000 inactivity_svm_dev_g=0.15 inactivity_timeout_ms=6000 standing_svm_g=1.0
+agreement with logged state column: 36981/41023 (90.15%)  [meaningful only for logs from the same rule]
+states reached in simulation: FALL_DETECTED|INACTIVITY_CHECK|MONITORING|SETTLE
+
+trial activity        detected  furthest_state
+    1 fall-backward   YES       FALL_DETECTED
+    2 fall-right      YES       FALL_DETECTED
+    3 fall-left       YES       FALL_DETECTED
+    4 fall-forward    no        MONITORING
+    5 fall-backward   no        INACTIVITY_CHECK
+    6 fall-right      YES       FALL_DETECTED
+    7 fall-left       YES       FALL_DETECTED
+    8 fall-forward    no        INACTIVITY_CHECK
+    9 sit-down        no        INACTIVITY_CHECK
+   10 lie-down        no        INACTIVITY_CHECK
+
+### args: --no-freefall --inactivity-timeout-ms 10000
+log: data/raw/2026-11-17_falls_session3.log  rule: v2 +no-freefall (what-if)  samples: 41023
+params: freefall_threshold_g=0.4 freefall_min_ms=50 impact_threshold_g=2.5 impact_window_ms=500 tilt_threshold_deg=60.0 post_impact_settle_ms=1000 inactivity_ms=2000 inactivity_svm_dev_g=0.15 inactivity_timeout_ms=10000 standing_svm_g=1.0
+agreement with logged state column: 36298/41023 (88.48%)  [meaningful only for logs from the same rule]
+states reached in simulation: FALL_DETECTED|INACTIVITY_CHECK|MONITORING|SETTLE
+
+trial activity        detected  furthest_state
+    1 fall-backward   YES       FALL_DETECTED
+    2 fall-right      YES       FALL_DETECTED
+    3 fall-left       YES       FALL_DETECTED
+    4 fall-forward    no        MONITORING
+    5 fall-backward   YES       FALL_DETECTED
+    6 fall-right      YES       FALL_DETECTED
+    7 fall-left       YES       FALL_DETECTED
+    8 fall-forward    no        INACTIVITY_CHECK
+    9 sit-down        no        INACTIVITY_CHECK
+   10 lie-down        YES       FALL_DETECTED
