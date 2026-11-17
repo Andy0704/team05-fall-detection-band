@@ -13,7 +13,7 @@ be reused as held-out results.
 | Session | Raw log | Firmware | Trials | Rate / drops |
 |---|---|---|---|---|
 | Standing calibration | `data/raw/2026-11-17_onbody-pilot/2026-11-17_standing-still_axis-check.log`, `..._axis-verify.log` | ff6ad6a, 3514471 | standing still 15 s | 100.0000 Hz, 0 gaps |
-| Session 2 | `data/raw/2026-11-17_fall-forward_session2.log` + `_trials.csv` | 3954940 (rule v1) | back, right, left, front, down-in-place ×2 | 100.0000 Hz, 0 gaps |
+| Session 2 | `data/raw/2026-11-17_fall-forward_session2.log` + `_trials.csv` | 3954940 (rule v1) | back, right, left, front, down-in-place ×2 | 252.6 s, 100.0000 Hz, 0 gaps |
 | Session 3 | `data/raw/2026-11-17_falls_session3.log` + `_trials.csv` | 4bd243c (rule v2) | back, right, left, front ×2, sit-down, lie-down | 410.2 s, 100.0000 Hz, 0 dropped ticks |
 
 - Session 2 labels come from the operators after the session (the recorder

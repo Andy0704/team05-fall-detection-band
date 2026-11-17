@@ -1,40 +1,51 @@
 # Project status: Team 05 Fall-Detection Band
 
-Last updated: 2026-11-09. Update this file after every work session.
+Last updated: 2026-11-17. Update this file after every work session.
 
 ## Summary
 
-End of session state, 2026-11-09: `main` has the sampling task, the
-free-fall/impact/tilt/inactivity rule, Joaquin's standalone MPU6050
-validation, and (on branch `output-alarm`, not yet merged) a working
-buzzer + LCD1602 + cancel-button output stage. The rule is **still not
-validated against real fall data** — all thresholds are still "first
-guess" or "handout example" — and `a_v` (vertical axis) is still a
-placeholder (`az`) pending mounting confirmation. The LCD/button/buzzer
-are wired per the pins below but not yet confirmed working by eye/ear
-(only a Serial-log sanity check done so far — no crash, 430+ samples
-still MONITORING with the output task running). The one genuine
-10-minute/100 Hz/0-drop log on record
-(`data/raw/2026-11-05_joaquin-standalone-validation_10min_100Hz.log`) is
-from a standalone sketch, not the production firmware — spec 04 still
-needs its own run on `firmware/src/main.cpp`.
+End of session state, 2026-11-17 (branch `output-alarm`, not yet merged
+to `main`): sampling, the fall rule, buzzer + cancel button output and the
+first on-body fall trials are all running on the production firmware
+(`4bd243c`). `platformio.ini` now lives at the repo root. The vertical axis
+is measured: **a_v = −ax** (open decision #1 resolved). The fall rule had a
+bug (still check seeded with the impact SVM, so FALL_DETECTED was
+unreachable) — fixed with a SETTLE state, a retrying still window and tilt
+measured while lying (approved temporarily by the team). Two pilot
+sessions (16 falls, 4 controls, tuning set only): **0/16 falls detected,
+0/4 false alarms on the board**; the free-fall stage (< 0.4 g for ≥ 50 ms)
+blocks every fall because the pilot falls are guided descents (USB cable
+to the PC, faller hesitant to drop freely). Full analysis:
+`docs/diagnosis/2026-11-17_fall-rule-diagnosis.md` (+ `.docx`). Tools:
+`tools/record_trials.py` (operator-paced guided recording),
+`tools/analyze_trials.py` (per-trial features), `tools/simulate_rule.py`
+(Python copy of the rule, matches the board 100% on both sessions). The
+LCD is still blank (parked; buzzer alone satisfies spec 03).
 
 **Resume here next session:**
-1. **Buzzer and cancel button both confirmed working** standalone
-   (PWM test heard clearly - passive buzzer; button test showed clean
-   HIGH/LOW transitions on press/release). No firmware changes needed
-   for either - wiring and code are both correct. **The buzzer alone
-   already satisfies spec 03's output requirement**, so the project is
-   not blocked on the LCD for that spec.
-2. **LCD still blank** — see "LCD: repair steps and fallback plan"
-   below for the multimeter checks to try next and the fallback
-   options if it can't be revived.
-3. Real fall-test trials not started yet — see "Real fall-test
-   protocol" below for the full step-by-step (calibrating `a_v`,
-   running the Test plan tracker trials, splitting before tuning,
-   computing sensitivity/specificity).
-4. Still need a real 10-minute log with drop rate from `firmware/src/main.cpp`
-   itself for spec 04 (only the standalone-sketch log exists so far).
+1. **Team decision on improvements A and B** (diagnosis doc §6):
+   tilt relative to the wearer's standing posture (offline: all session 3
+   falls 70–89°, sit-down 26°) and a "recent low point" pre-impact check
+   replacing the free-fall duration test. Both change the rule structure.
+2. **Improve test conditions** (§6 D): untethered logging (power bank +
+   log to PSRAM, dump afterwards) or at least a long cable with strain
+   relief; build faller confidence gradually (thick mat, from kneeling).
+3. **Record the full tuning set** with `tools/record_trials.py` (labels
+   and tuning/held-out assignment fixed before recording), ideally with
+   more than one faller. Then tune B/C in the simulator, flash, run
+   held-out trials on the board.
+4. **Forward-fall tilt** (56–64° with −ax) — resolved by A if adopted;
+   otherwise decide whether to lower `TILT_THRESHOLD_DEG`.
+5. **Spec 04:** still need a 10-minute run on the production firmware
+   (longest so far: session 3, 410.2 s, 0 drops).
+6. **Progress deliverable Thu 19 Nov (PowerPoint):** not started; the
+   diagnosis doc has the material.
+7. Pending answers: keep or delete the aborted
+   `data/raw/2026-11-17_fall-forward_session1.log` (uncommitted); does
+   "down in place" count as a fall?
+8. LCD still blank — see "LCD: repair steps and fallback plan" below.
+9. Housekeeping: the repo sits in iCloud-synced `Documents`; iCloud
+   offloaded `.git/` files on 2026-11-17. Move it out (e.g. `~/Projects`).
 
 ## Repository and collaboration
 
@@ -57,9 +68,9 @@ needs its own run on `firmware/src/main.cpp`.
 
 | Spec | Evidence needed | Status | Measured value | Evidence file |
 |---|---|---|---|---|
-| 01 Rate | Measured rate in Hz from a real run, shown on screen | In progress: 5 s smoke test done, needs on-device display (not Serial) and a longer run | **100.0000 Hz** (5.1 s smoke test) | `data/raw/2026-11-05_sampling-task-smoketest.log` via `tools/analyze_log.py` |
+| 01 Rate | Measured rate in Hz from a real run, shown on screen | In progress: production firmware measured on-body; still needs on-device display (not Serial) | **100.0000 Hz, 0 dropped ticks** (410.2 s, session 3, firmware 4bd243c); earlier 5.1 s smoke test also 100.0000 Hz | `data/raw/2026-11-17_falls_session3.log` via `tools/analyze_log.py`; `data/raw/2026-11-05_sampling-task-smoketest.log` |
 | 02 Real time | Decision made on the board while the signal arrives | In progress: `FallDetector::update()` now runs in the sampling task on every sample, on the board | n/a | `firmware/src/fall_detector.cpp` |
-| 03 Rule | One line of code: named constant with unit | Implemented: free-fall -> impact (within window) -> trunk tilt + inactivity, all named constants in `firmware/include/config.h`. Not yet validated against real fall data (thresholds still "first guess"/"handout example") | idle sanity check: 680/681 samples MONITORING, 1 brief FREE_FALL from handling, 0 FALL_DETECTED | `data/raw/2026-11-05_detection-rule-idle-sanity.log`, summarized in `data/processed/2026-11-05_detection-rule-idle-sanity.txt` |
+| 03 Rule | One line of code: named constant with unit | Implemented (rule v2, 4bd243c): free-fall -> impact (within window) -> settle -> lying still -> tilt while lying, all named constants in `firmware/include/config.h`. Pilot falls: **0/16 detected, 0/4 false alarms** (tuning set; free-fall stage blocks every fall — see `docs/diagnosis/2026-11-17_fall-rule-diagnosis.md`). Thresholds not yet tuned | idle sanity check: 680/681 samples MONITORING, 1 brief FREE_FALL from handling, 0 FALL_DETECTED | `data/raw/2026-11-05_detection-rule-idle-sanity.log`; pilot: `data/raw/2026-11-17_fall-forward_session2.log`, `data/raw/2026-11-17_falls_session3.log`, analysed in `data/processed/2026-11-17_*` |
 | 03 Output | Buzzer / LCD reacts with no laptop | Implemented on `output-alarm` branch (not merged). Buzzer (PWM, passive) and cancel button both confirmed working standalone. **LCD still blank, unresolved** — see "Resume here" above. Not yet seen end to end (real alarm trigger -> LCD text + buzzer + button cancel together) | buzzer/button: confirmed by ear/hand; LCD: not yet (still blank) | `firmware/src/main.cpp` |
 | 04 Ten min | Committed raw log and drop rate from it | Preliminary evidence only: Joaquin's standalone validation sketch (not the team's FreeRTOS firmware) ran 10 min with 0 drops. The production firmware (`firmware/src/main.cpp`) still needs its own 10-minute run before this spec is actually satisfied | **100.0000 Hz, 0.000000% drop rate** (611.63 s, standalone sketch) | `data/raw/2026-11-05_joaquin-standalone-validation_10min_100Hz.log` via `tools/analyze_log.py`, independently re-verified; see `data/processed/2026-11-05_joaquin-standalone-validation_10min_100Hz_rate.txt` |
 
@@ -75,7 +86,7 @@ needs its own run on `firmware/src/main.cpp`.
 
 ## Open decisions and items to confirm
 
-1. Team agreement on waist mounting and the 60° tilt condition (proposed, not yet agreed by all members). **Blocking a real parameter now:** `firmware/src/fall_detector.cpp` assumes `a_v` (vertical axis) is `az` as a placeholder — confirm the real mounting orientation once the band is actually worn and update `verticalComponentG()` if a different axis is vertical.
+1. Team agreement on waist mounting and the 60° tilt condition (proposed, not yet agreed by all members). ~~Vertical axis placeholder~~ Resolved 2026-11-17: a_v = −ax, measured standing still on-body (`data/raw/2026-11-17_onbody-pilot/2026-11-17_standing-still_axis-check.log`, verified in `..._axis-verify.log`: standing tilt 16.6° mean). The 60° tilt condition is still a first guess; see the diagnosis doc for a standing-reference tilt proposal.
 2. ~~Kit contents: OLED, buzzer, push button.~~ Resolved 2026-11-09: have a QAPASS 1602A LCD (parallel, no I2C), a 4-pin button, and a small buzzer (active/passive not confirmed from the part alone, driven via PWM either way). Still TBD: power bank, belt / strap — ask a TA.
 3. ~~IMU detected on I2C at 0x68 (WHO_AM_I read)?~~ Verified 2026-11-05 on hardware: `firmware/src/main.cpp` flashed to the ESP32-S3-N16R8, MPU6050 data-ready interrupt on GPIO4 fires and `WHO_AM_I` reads back `0x68` continuously. One transient `i2cWriteReadNonStop Error -1` seen in roughly 80 reads over ~5 s — not yet characterized, watch for recurrence once the sampling task is running.
 4. ~~OLED on the shared I2C bus, a second I2C controller, or MPU6050 FIFO.~~ Moot: the LCD1602 in hand is parallel (no I2C), so it never shares the I2C bus with the MPU6050.
@@ -167,9 +178,9 @@ Use the categories and counts in the Test plan tracker below. For each individua
 
 | Test | Expected | Planned trials | Done | Log files |
 |---|---|---|---|---|
-| Falls onto a mat, with spotter (forward, backward, lateral) | Fall detected | 30 (3 × 10) | 0 | none |
-| Fast sit-down | No alarm | 20 | 0 | none |
-| Deliberate lying down on a mat | No alarm | 10 | 0 | none |
+| Falls onto a mat, with spotter (forward, backward, lateral) | Fall detected | 30 (3 × 10) | 16 pilot (tuning only; 0 detected) | `data/raw/2026-11-17_fall-forward_session2.log`, `data/raw/2026-11-17_falls_session3.log` |
+| Fast sit-down | No alarm | 20 | 1 pilot (no alarm) | `data/raw/2026-11-17_falls_session3.log` |
+| Deliberate lying down on a mat | No alarm | 10 | 1 pilot (no alarm) | `data/raw/2026-11-17_falls_session3.log` |
 | Jumping | No alarm | 10 | 0 | none |
 | Walking | No alarm | 4 persons × 2 min | 0 | none |
 | Stairs | No alarm | 4 persons × 1 up-and-down run | 0 | none |
