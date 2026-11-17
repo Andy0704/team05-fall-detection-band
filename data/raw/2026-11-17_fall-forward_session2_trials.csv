@@ -1,0 +1,11 @@
+trial,activity,expected,buzzer_YN,states_seen,counter_start,counter_fall_cue,counter_lie_cue,counter_cancel_cue,counter_end,notes
+1,fall-forward,fall,,FREE_FALL|MONITORING,2003,2507,2820,3626,4322,
+2,fall-forward,fall,,FREE_FALL|MONITORING,4322,4825,5138,5935,6640,
+3,fall-forward,fall,,MONITORING,6640,7144,7447,8254,8960,
+4,fall-forward,fall,,FREE_FALL|MONITORING,8960,9464,9776,10582,11288,
+5,fall-forward,fall,,FREE_FALL|MONITORING,11288,11792,12094,12901,13617,
+6,fall-forward,fall,,MONITORING,13617,14120,14433,15229,15945,
+7,fall-forward,fall,,FREE_FALL|IMPACT_WAIT|MONITORING,15945,16449,16752,17558,18264,
+8,fall-forward,fall,,FREE_FALL|MONITORING,18264,18768,19070,19877,20582,
+9,fall-forward,fall,,FREE_FALL|MONITORING,20582,21086,21399,22205,22901,
+10,fall-forward,fall,,FREE_FALL|MONITORING,22901,23405,23718,24515,25221,
