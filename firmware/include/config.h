@@ -27,7 +27,7 @@ constexpr uint8_t CONFIG_DLPF_44HZ = 0x03;
 constexpr size_t LOG_QUEUE_LENGTH = 32;
 
 // Fall-detection rule (CLAUDE.md "Design decisions": free-fall -> impact
-// within a window -> trunk tilt + inactivity). None of these are
+// within a window -> settle -> lying still with trunk tilt). None of these are
 // validated against real fall data yet (PROJECT_STATUS.md threshold
 // register).
 
@@ -46,15 +46,57 @@ constexpr float IMPACT_THRESHOLD_G = 2.5f;
 // is confirmed, or the episode is dropped.
 constexpr uint32_t IMPACT_WINDOW_MS = 500;
 
-// First guess: trunk tilt at impact must exceed this to count as a
-// fall-like posture change, not just a hard footstep or bump.
+// First guess: trunk tilt from vertical (0 deg upright, ~90 deg lying
+// flat), measured at the end of the lying-still window (not at impact,
+// when the trunk is still mid-fall; see 2026-11-17 session 2 diagnostics).
+// Must exceed this to confirm a fall.
 constexpr float TILT_THRESHOLD_DEG = 60.0f;
 
-// First guess: after a tilted impact, SVM must stay within
-// STANDING_SVM_G +/- INACTIVITY_SVM_DEV_G for this long (tracked with a
-// running min/max, no variance) before the fall is confirmed.
+// First guess: after impact, ignore motion for this long (bounces,
+// rolling onto the floor) before starting the lying-still check. Added
+// 2026-11-17: without it the still check was seeded with the impact SVM
+// and could never pass.
+constexpr uint32_t POST_IMPACT_SETTLE_MS = 1000;
+
+// First guess: SVM must stay within STANDING_SVM_G +/- INACTIVITY_SVM_DEV_G
+// for INACTIVITY_MS (running min/max, no variance). If the body moves,
+// the still window restarts instead of aborting the detection.
 constexpr uint32_t INACTIVITY_MS = 2000;
 constexpr float INACTIVITY_SVM_DEV_G = 0.15f;
 
+// First guess: give up (back to MONITORING) if no INACTIVITY_MS still
+// window completes within this long after the impact. Covers settle
+// (1 s) + still window (2 s) + 3 s for e.g. rolling over once.
+constexpr uint32_t INACTIVITY_TIMEOUT_MS = 6000;
+
 // Nominal SVM at rest (gravity only, no motion).
 constexpr float STANDING_SVM_G = 1.0f;
+
+// Output/alarm (CLAUDE.md "Design decisions": buzzer + LCD "FALL
+// DETECTED", cancel button, alarm ends on button press or timeout).
+
+// First guess: how long the alarm sounds before auto-cancelling if the
+// button is never pressed.
+constexpr uint32_t ALARM_TIMEOUT_S = 30;
+
+// Design choice: how often the output task polls the button and checks
+// whether the display needs refreshing.
+constexpr uint32_t OUTPUT_POLL_MS = 20;
+
+// First guess: a raw button reading must stay stable for this long to
+// count as a real press, not switch bounce.
+constexpr uint32_t BUTTON_DEBOUNCE_MS = 30;
+
+// Design choice: refresh the idle status line at most this often, so the
+// display isn't rewritten every 10 ms sample (CLAUDE.md: "refreshes only
+// on state changes and about once per second").
+constexpr uint32_t DISPLAY_REFRESH_MS = 1000;
+
+// Buzzer PWM (works for both active and passive buzzers: a passive
+// buzzer sounds the tone itself, an active buzzer just gets switched at
+// this rate). 2 kHz is an audible first guess, not measured against the
+// actual buzzer yet.
+constexpr uint8_t BUZZER_PWM_CHANNEL = 0;
+constexpr uint32_t BUZZER_PWM_FREQ_HZ = 2000;
+constexpr uint8_t BUZZER_PWM_RESOLUTION_BITS = 8;
+constexpr uint32_t BUZZER_PWM_DUTY = 128; // ~50% of 2^8, first guess

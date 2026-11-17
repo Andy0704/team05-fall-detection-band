@@ -17,10 +17,10 @@ Checks work on the Team 05 fall-detection band against the four mandatory course
 
 For each item, answer pass, fail or unknown, and quote the line of code or file that shows it.
 
-- **01 Rate:** the rate shown on the OLED or log comes from counted samples over time measured with `micros()`, not from a `RATE_HZ` constant. The chosen rate is at least 50 Hz and the reason is written down.
+- **01 Rate:** the rate shown on the LCD or log comes from counted samples over time measured with `micros()`, not from a `RATE_HZ` constant. The chosen rate is at least 50 Hz and the reason is written down.
 - **02 Real time:** reading, processing and the fall decision all run on the ESP32. The laptop only displays or saves.
 - **03 Rule:** every threshold is a named constant with a unit in its name or comment, and a source comment. No bare numeric thresholds inside functions.
-- **03 Output:** the buzzer or OLED reacts to the event with no laptop attached. `Serial.print` is not counted.
+- **03 Output:** the buzzer or LCD reacts to the event with no laptop attached. `Serial.print` is not counted. Note: the buzzer alone already satisfies this spec even if the LCD is unavailable — don't block the spec on the LCD.
 - **04 Ten minutes:** the firmware has run for at least 600 s without reboot, the raw log is committed, and the drop rate is computed from it.
 - **Non-blocking:** the sampling task contains no `delay()`, display call or blocking serial write. The counter increments per scheduled tick.
 
@@ -62,7 +62,7 @@ Every threshold in the code and in the proposal needs one source: own measuremen
 | 01 Rate | Screenshot of the measured rate in Hz from a real run |
 | 02 Real time | The decision happening live, with no script reading a saved file |
 | 03 Rule | One line of code with the named constant and its unit |
-| 03 Output | Buzzer or OLED reacting when the event happens |
+| 03 Output | Buzzer or LCD reacting when the event happens |
 | 04 Ten min | Link to the committed raw log and the drop rate worked out from it |
 
 It is better to show four honest, measured numbers than a device that does a lot with nothing measured.

@@ -5,7 +5,7 @@ Design decisions come from the revised proposal (`docs/Team05_Proposal.docx`). C
 
 ## Project
 
-A waist-worn fall-detection band for older adults who may fall while alone. An ESP32-S3 reads an MPU6050 accelerometer, decides on the board, and raises a local alarm (buzzer + OLED, with a cancel button). There is no wireless alert.
+A waist-worn fall-detection band for older adults who may fall while alone. An ESP32-S3 reads an MPU6050 accelerometer, decides on the board, and raises a local alarm (buzzer + LCD1602, with a cancel button). There is no wireless alert.
 
 The course has no written exams. Assessment is this group project only:
 
@@ -21,9 +21,12 @@ Deliverables and code comments are in English. Team discussion may be in Traditi
 
 - ESP32-S3-N16R8 board (16 MB flash, 8 MB octal PSRAM). MPU6050 on I2C at address 0x68, SDA on GPIO 8, SCL on GPIO 9, powered from 3V3 (never 5V).
 - MPU6050 INT pin: GPIO4 (wired 2026-11-05).
-- OLED, buzzer, push button, power bank and strap: availability and pins are TBD (confirm with a TA). Do not invent pin numbers; add them here once wired.
+- Display: QAPASS 1602A, 16x2 character LCD (HD44780-compatible parallel interface, **no I2C backpack**). Driven in 4-bit mode. Wired 2026-11-09: RS=GPIO5, EN=GPIO6, D4=GPIO7, D5=GPIO15, D6=GPIO16, D7=GPIO17. RW tied to GND (write-only); V0 (contrast) through a potentiometer, not a GPIO; A/K (backlight) wired directly to power/GND; VSS to GND, VDD to the board's 5V pin (not 3V3 — the LCD-1602A datasheet specs 4.5-5.5V logic supply). **Status: still blank as of 2026-11-09** after fixing all of the above in turn; firmware confirmed not at fault (runs to completion every time, tested with minimal standalone sketches too). See PROJECT_STATUS.md "Resume here" for the troubleshooting log and next steps (multimeter check) and the fallback options if it can't be revived.
+- Cancel button: GPIO18 (wired 2026-11-09), 4-pin tactile button, `INPUT_PULLUP`, active-low.
+- Buzzer: GPIO10 (wired 2026-11-09), small electromagnetic buzzer, driven via `ledc` PWM (works whether it turns out to be active or passive — not confirmed from the part alone).
+- Power bank and strap: availability and pins are TBD (confirm with a TA). Do not invent pin numbers; add them here once wired.
 - If a module does not appear on the I2C bus, ask a TA for a replacement before debugging code.
-- Toolchain: PlatformIO, project root at `firmware/`. Board id `esp32-s3-devkitc-1`, framework `arduino`.
+- Toolchain: PlatformIO, project root is the repo root (`platformio.ini` there, with `src_dir`/`include_dir` pointing at `firmware/src` and `firmware/include`, so PIO Home detects it). Board id `esp32-s3-devkitc-1`, framework `arduino`.
 - Which physical axis (`ax`/`ay`/`az`) is `a_v` (vertical) depends on the final waist-mounting orientation and is not confirmed yet — see PROJECT_STATUS.md open decision #1. The firmware currently assumes `az` as a placeholder (`firmware/src/fall_detector.cpp`); update it once the band is actually worn.
 
 ## The four mandatory specs (hard constraints)
@@ -41,10 +44,10 @@ Deliverables and code comments are in English. Team discussion may be in Traditi
 - **Sampling:** 100 Hz target (10 ms period), always reported as measured. A dedicated high-priority FreeRTOS task uses `vTaskDelayUntil()`.
 - **Sensor config:** accelerometer ±8 g (4096 LSB/g). DLPF first choice 44 Hz bandwidth (to confirm). Rate, DLPF setting and sensor position are fixed before collecting threshold data and written in every log header.
 - **Signals:** SVM = √(ax² + ay² + az²) in g. Trunk tilt θ = arccos(a_v / SVM) in degrees.
-- **Rule:** free-fall → impact within a window → trunk tilt above a threshold and SVM within 1 ± `INACTIVITY_SVM_DEV_G` of 1 g for `INACTIVITY_S` (tracked with a running min/max, no variance).
-- **Output:** buzzer + OLED "FALL DETECTED". The button cancels. The alarm ends on button press or after `ALARM_TIMEOUT_S`, then returns to monitoring.
-- **No blocking:** display and logging run in lower-priority tasks fed by a queue. The OLED refreshes only on state changes and about once per second.
-- **I2C contention:** a full OLED frame may take 20–30 ms at 400 kHz (an estimate; measure it with `micros()`), longer than the 10 ms period. Fallbacks: read the MPU6050 FIFO (1024 B, about 170 samples at 100 Hz) or put the OLED on the second I2C controller.
+- **Rule:** free-fall → impact within a window → settle for `POST_IMPACT_SETTLE_MS` → SVM within 1 ± `INACTIVITY_SVM_DEV_G` of 1 g for `INACTIVITY_S` (running min/max, no variance; the still window restarts on movement, gives up after `INACTIVITY_TIMEOUT_MS` from impact) → trunk tilt above `TILT_THRESHOLD_DEG`, measured at the end of the still window (lying posture, not at impact). Settle step and tilt-while-lying approved temporarily by the team 2026-11-17 after the session 2 pilot. Offline copy for tuning: `tools/simulate_rule.py` (keep in sync).
+- **Output:** buzzer + LCD1602 "FALL DETECTED". The button cancels. The alarm ends on button press or after `ALARM_TIMEOUT_S`, then returns to monitoring. Implemented in `firmware/src/main.cpp` `outputTask`. The buzzer and button are both confirmed working; the LCD is not (see Hardware section). **The buzzer alone already satisfies spec 03's on-device output requirement** (CLAUDE.md "four mandatory specs" lists buzzer as a valid output on its own) — the LCD is a nice-to-have for the demo, not a blocker for that spec.
+- **No blocking:** display and logging run in lower-priority tasks fed by a queue (the output task reads the latest state from a shared variable rather than the log queue, since it only needs to react to state, not every sample). The LCD refreshes only on state changes and about once per second (`DISPLAY_REFRESH_MS`).
+- **I2C contention:** does not apply — the LCD1602 in hand is a parallel HD44780 module (no I2C backpack), so it uses its own dedicated GPIO pins and never shares the I2C bus with the MPU6050. Kept here as a note in case a future display swap goes back to I2C.
 - **Sensor health:** I2C failure or timeout, WHO_AM_I (register 0x75) not 0x68, `SENSOR_IDENTICAL_SAMPLES` identical samples in a row, or no new sample for `SENSOR_STALE_MS`. The device shows "SENSOR ERROR", beeps twice every 5 s, re-initialises every 1 s, and recovers after `SENSOR_RECOVER_SAMPLES` valid samples.
 
 ## Named constants (all thresholds live in one config header)
@@ -65,7 +68,14 @@ Values below are starting points. Only the three marked "handout" come from the 
 | `TILT_THRESHOLD_DEG` | 60 | degrees | first guess |
 | `INACTIVITY_S` | 2 | s | first guess |
 | `INACTIVITY_SVM_DEV_G` | 0.15 | g | first guess |
+| `POST_IMPACT_SETTLE_MS` | 1000 | ms | first guess |
+| `INACTIVITY_TIMEOUT_MS` | 6000 | ms | first guess |
+| `STANDING_SVM_G` | 1.0 | g | nominal (gravity only) |
 | `ALARM_TIMEOUT_S` | 30 | s | first guess |
+| `BUTTON_DEBOUNCE_MS` | 30 | ms | first guess |
+| `DISPLAY_REFRESH_MS` | 1000 | ms | design choice |
+| `OUTPUT_POLL_MS` | 20 | ms | design choice |
+| `BUZZER_PWM_FREQ_HZ` | 2000 | Hz | first guess, not measured against the actual buzzer |
 | `SENSOR_STALE_MS` | 30 | ms | first guess |
 | `SENSOR_IDENTICAL_SAMPLES` | 50 | samples | first guess |
 | `SENSOR_RECOVER_SAMPLES` | 100 | samples | first guess |
@@ -94,10 +104,11 @@ Values below are starting points. Only the three marked "handout" come from the 
 CLAUDE.md
 PROJECT_STATUS.md
 README.md          quick-start pointer for the team (hardware, build, branches)
-.claude/skills/fall-band-spec-check/SKILL.md
+SKILL.md           fall-band-spec-check skill (spec/rate/drop-rate checks)
 docs/              proposal, slides, final report
-firmware/          PlatformIO project (ESP32-S3 sources)
-  platformio.ini
+platformio.ini     PlatformIO config (src_dir/include_dir -> firmware/)
+firmware/          ESP32-S3 sources
+  git_version.py   pre-build script (commit hash for log header)
   include/         pins.h, config.h, fall_detector.h
   src/             main.cpp, fall_detector.cpp
 experiments/       standalone validation sketches, not the team firmware
